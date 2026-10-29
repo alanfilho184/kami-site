@@ -1,0 +1,11 @@
+.nuxt
+.output
+node_modules
+coverage
+playwright-report
+test-results
+.playwright-mcp
+package-lock.json
+app/assets/css/kami.css
+public/fonts
+.env

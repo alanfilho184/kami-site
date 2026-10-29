@@ -1,43 +1,42 @@
 {
-  "name": "kami-site",
-  "version": "4.0.11-beta",
-  "description": "Site para o BOT para Discord Kami",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "author": "Kamikaze_184",
-  "license": "CC BY-NC-ND 4.0",
-  "dependencies": {
-    "@alanfilho184/kami-lru-cache": "^1.2.0",
-    "@discordjs/rest": "^0.3.0",
-    "axios": "^0.24.0",
-    "colors": "^1.4.0",
-    "connect-pg-simple": "^7.0.0",
-    "cookie-parser": "^1.4.6",
-    "cookies": "^0.8.0",
-    "cors": "^2.8.5",
-    "crypto-js": "^4.1.1",
-    "discord-api-types": "^0.27.2",
-    "discord-oauth2": "^2.9.0",
-    "dotenv": "^10.0.0",
-    "ejs": "^3.1.8",
-    "express": "^4.17.3",
-    "express-session": "^1.17.2",
-    "fast-glob": "^3.2.7",
-    "lodash": "^4.17.21",
-    "luxon": "^2.5.2",
-    "milliseconds-parser": "^1.0.2",
-    "pg": "^8.7.3",
-    "sequelize": "^6.29.0",
-    "serve-favicon": "^2.5.0",
-    "socket.io-client": "^4.5.1",
-    "string-similarity": "^4.0.4"
-  },
-  "devDependencies": {
-    "nodemon": "^2.0.15"
-  },
-  "engines": {
-    "node": ">=16.15.1"
-  }
+    "name": "kami-site",
+    "version": "6.0.0",
+    "private": true,
+    "type": "module",
+    "description": "Site e plataforma web do Kami.",
+    "license": "CC BY-NC-ND 4.0",
+    "engines": {
+        "node": ">=24.12.0"
+    },
+    "scripts": {
+        "dev": "nuxt dev --host 0.0.0.0",
+        "build": "nuxt build",
+        "preview": "nuxt preview",
+        "start": "node --env-file-if-exists=.env .output/server/index.mjs",
+        "postinstall": "nuxt prepare",
+        "typecheck": "nuxt typecheck",
+        "format": "prettier --write .",
+        "format:check": "prettier --check .",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:e2e": "playwright test",
+        "check": "npm run format:check && npm run typecheck && npm run test && npm run build"
+    },
+    "dependencies": {
+        "nuxt": "^4.6.3",
+        "pg": "^8.23.1",
+        "sql-template-strings": "^2.2.2",
+        "vue": "^3.5.44",
+        "vue-router": "^5.4.0",
+        "zod": "^4.6.7"
+    },
+    "devDependencies": {
+        "@playwright/test": "^1.64.1",
+        "@types/node": "^24.19.2",
+        "@types/pg": "^8.23.1",
+        "prettier": "^3.9.10",
+        "typescript": "^5.9.3",
+        "vitest": "^5.0.5",
+        "vue-tsc": "^3.3.13"
+    }
 }

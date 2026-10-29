@@ -1,0 +1,16 @@
+node_modules/
+.nuxt/
+.output/
+.data/
+logs/
+*.log
+.env
+.env.*
+!.env.example
+coverage/
+playwright-report/
+test-results/
+.playwright-mcp/
+design/source/
+.DS_Store
+Thumbs.db

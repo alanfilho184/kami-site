@@ -1,0 +1,1715 @@
+/*
+ * ============================================================================
+ * KAMI DESIGN SYSTEM — kami.css
+ * ============================================================================
+ *
+ * Camada 0 · Fontes
+ * Camada 1 · Tokens
+ * Camada 2 · Reset
+ * Camada 3 · Base
+ * Camada 4 · Componentes visuais (classes)
+ * Camada 5 · Utilitários
+ *
+ * Uso:
+ *   1. copie este arquivo para o projeto (ex.: src/assets/css/kami.css)
+ *   2. copie a pasta fonts/ para public/fonts/ do projeto
+ *   3. importe o CSS na entrada da aplicacao
+ *
+ * Regra de ouro: este arquivo NAO contem JavaScript, framework ou pre-processador.
+ * CSS puro, custom properties e classes. Funciona em Vue, React, Svelte, Nuxt,
+ * Vite, Next, HTML estatico — a unica exigencia e suporte a CSS custom
+ * properties (navegadores desde 2016).
+ *
+ * Tema: dark mode e o unico tema. Nao existe light mode neste design system.
+ *
+ * Licenca de conteudo visual: adaptador proprio do estilo NERV/Evangelion.
+ * Ver docs/principios.md para a gramatica e as regras de uso.
+ */
+
+/* ==========================================================================
+ * CAMADA 0 · FONTES
+ * ==========================================================================
+ * Familia display (Oswald)  -> titulos, rotulos, numeros grandes, botoes.
+ * Familia mono (Fira Code)  -> telemetria, IDs, codigos, valores, timestamps.
+ *
+ * Os arquivos sao servidos de /fonts/. Em Vite/Nuxt, copie a pasta fonts/ do
+ * design system para public/fonts/ do projeto. Em outros build tools, ajuste
+ * a URL ou importe os .ttf como asset.
+ */
+
+@font-face {
+    font-family: 'Oswald';
+    src: url('/fonts/Oswald-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Oswald';
+    src: url('/fonts/Oswald-SemiBold.ttf') format('truetype');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Oswald';
+    src: url('/fonts/Oswald-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Fira Code';
+    src: url('/fonts/FiraCode-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: 'Fira Code';
+    src: url('/fonts/FiraCode-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* ==========================================================================
+ * CAMADA 1 · TOKENS
+ * ==========================================================================
+ * Todos os tokens vivem em :root. Nenhum componente deve escrever um valor
+ * literal de cor, espaco ou fonte: use a variavel. Assim a interface inteira
+ * muda de personalidade trocando so esta secao.
+ */
+
+/* --- 1.1 Paleta em shades ------------------------------------------------- */
+/*                                                                            */
+/* A paleta bruta do sistema. Cada familia tem 11 degraus: o 500 e a cor base  */
+/* exata e os demais sao derivados dela. Use os tokens semanticos (1.5) na   */
+/* interface; use as shades para graficos, series de dados, hovers e         */
+/* superficies que precisam de um tom intermediario.                        */
+/*                                                                            */
+/* Gerado por scripts/gen-shades.mjs — nao edite a mao, edite o gerador.     */
+:root {
+    /* Azul KAMI. Identidade, hierarquia, estado saudavel. */
+    --kami-accent-50: #f0f6ff;
+    --kami-accent-100: #dbecff;
+    --kami-accent-200: #b8dbff;
+    --kami-accent-300: #7ac2ff;
+    --kami-accent-400: #4fb3ff;
+    --kami-accent-500: #0082ff;
+    --kami-accent-600: #0062d6;
+    --kami-accent-700: #0348a6;
+    --kami-accent-800: #05337a;
+    --kami-accent-900: #052151;
+    --kami-accent-950: #04122f;
+
+    /* Ambar. Atencao. Reservado. */
+    --kami-warn-50: #fff9e5;
+    --kami-warn-100: #fff1c7;
+    --kami-warn-200: #ffe299;
+    --kami-warn-300: #ffce5c;
+    --kami-warn-400: #ffc02e;
+    --kami-warn-500: #ffaa00;
+    --kami-warn-600: #d68800;
+    --kami-warn-700: #a16402;
+    --kami-warn-800: #714604;
+    --kami-warn-900: #482c04;
+    --kami-warn-950: #2a1a03;
+
+    /* Vermelho. Falha, critico. Reservado. */
+    --kami-danger-50: #ffeceb;
+    --kami-danger-100: #ffd5d1;
+    --kami-danger-200: #ffafa8;
+    --kami-danger-300: #ff7b70;
+    --kami-danger-400: #ff5142;
+    --kami-danger-500: #ff2b1d;
+    --kami-danger-600: #f00f00;
+    --kami-danger-700: #b40f04;
+    --kami-danger-800: #7e0e07;
+    --kami-danger-900: #500b07;
+    --kami-danger-950: #2e0805;
+
+    /* Verde. "Online"/"ao vivo". Uso raro e explicito. */
+    --kami-live-50: #ebffeb;
+    --kami-live-100: #d1ffd1;
+    --kami-live-200: #a3ffa3;
+    --kami-live-300: #66ff66;
+    --kami-live-400: #33ff33;
+    --kami-live-500: #00ff00;
+    --kami-live-600: #00cc00;
+    --kami-live-700: #049509;
+    --kami-live-800: #05660c;
+    --kami-live-900: #05420b;
+    --kami-live-950: #042508;
+
+    /* Neutros. Sutilmente frios, para nao competir com o azul. */
+    --kami-gray-50: #f6f7f9;
+    --kami-gray-100: #ebecf0;
+    --kami-gray-200: #d4d7dd;
+    --kami-gray-300: #b5bac4;
+    --kami-gray-400: #9aa1b2;
+    --kami-gray-500: #8b93a2;
+    --kami-gray-600: #6e788c;
+    --kami-gray-700: #576070;
+    --kami-gray-800: #404754;
+    --kami-gray-900: #2b313b;
+    --kami-gray-950: #161a22;
+}
+
+/* --- 1.2 Superficies ---------------------------------------------------- */
+:root {
+    /* Vazio total. Fundo padrao da pagina. */
+    --kami-void: #000000;
+    /* Superficie elevada: cards, paineis, cabecalhos de bloco. */
+    --kami-surface: #05070a;
+    /* Superficie de painel: molduras e tabelas. */
+    --kami-surface-2: #0a0a0a;
+    /* Superficie de trilho: fundo de gauge, barra de rolagem, area inativa. */
+    --kami-track: #0e1218;
+    /* Vinheta azul no topo. Desligue com --kami-vignette: transparent. */
+    --kami-vignette: rgba(0, 130, 255, 0.06);
+}
+
+/* --- 1.3 Linhas e bordas ------------------------------------------------ */
+:root {
+    /* Borda de moldura: cards, paineis, tabelas, inputs. */
+    --kami-line: #132649;
+    /* Divisoria interna e grade: mais escura, some de proposito. */
+    --kami-line-soft: #002059;
+    /* Borda em evidencia: hover, foco, item selecionado. */
+    --kami-line-strong: #1c3f7a;
+    /* Grade de fundo da pagina. Use transparent para desligar. */
+    --kami-grid: rgba(230, 232, 238, 0.035);
+    /* Larguras de borda. */
+    --kami-border-width: 1px;
+    --kami-border: var(--kami-border-width) solid var(--kami-line);
+    --kami-border-soft: var(--kami-border-width) solid var(--kami-line-soft);
+    --kami-border-accent: var(--kami-border-width) solid var(--kami-accent);
+}
+
+/* --- 1.4 Texto ----------------------------------------------------------- */
+:root {
+    /* Texto principal. */
+    --kami-text: #e6e8ee;
+    /* Texto secundario: legendas, descricoes. */
+    --kami-text-muted: var(--kami-gray-400);
+    /* Texto terciario: metadados, legendas minusculas, placeholders. */
+    --kami-text-dim: var(--kami-gray-500);
+    /* Texto sobre fundo de acento, ambar ou vermelho. */
+    --kami-text-inverse: var(--kami-surface);
+}
+
+/* --- 1.5 Acento e estados ------------------------------------------------ */
+:root {
+    /* Azul KAMI. Cor primaria do sistema: identidade, hierarquia, OK. */
+    --kami-accent: var(--kami-accent-500);
+    /* Azul claro. Hover de texto de acento sobre fundo escuro. */
+    --kami-accent-2: var(--kami-accent-400);
+    /* Azul translucido. Fundo de hover, realce, area selecionada. */
+    --kami-accent-soft: rgba(0, 130, 255, 0.14);
+    /* Azul translucido forte. Borda de acento, foco. */
+    --kami-accent-dim: rgba(0, 130, 255, 0.45);
+    /* Sombra de brilho azul. Usado em pontos, marcadores e etiquetas. */
+    --kami-accent-glow: rgba(0, 130, 255, 0.65);
+
+    /* Nominal / saudavel. REGRA: OK e azul, nunca verde. */
+    --kami-ok: var(--kami-accent);
+    --kami-ok-soft: rgba(0, 130, 255, 0.08);
+
+    /* Atencao. Reservado. */
+    --kami-warn: var(--kami-warn-500);
+    --kami-warn-soft: rgba(255, 170, 0, 0.07);
+
+    /* Critico / falha. Reservado. */
+    --kami-danger: var(--kami-danger-500);
+    --kami-danger-soft: rgba(255, 43, 29, 0.08);
+
+    /* "Online" / "ao vivo". Excepcional: o verde nao substitui o azul. */
+    --kami-live: var(--kami-live-500);
+    --kami-live-soft: rgba(0, 255, 0, 0.07);
+}
+
+/* --- 1.6 Tipografia ----------------------------------------------------- */
+:root {
+    --kami-font-display: 'Oswald', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+    --kami-font-mono: 'Fira Code', 'Cascadia Mono', 'Consolas', monospace;
+
+    /* Escala de tamanho. O piso e 12px; 10px e 11px sao para micro-rotulos. */
+    --kami-text-2xs: 10px;
+    --kami-text-xs: 11px;
+    --kami-text-sm: 12px;
+    --kami-text-md: 13px;
+    --kami-text-lg: 15px;
+    --kami-text-xl: 18px;
+    --kami-text-2xl: 22px;
+    --kami-text-3xl: 28px;
+    --kami-text-4xl: 40px;
+
+    /* Entrelinha. Títulos usam tight; paragrafos usam normal/relaxed. */
+    --kami-leading-tight: 1;
+    --kami-leading-normal: 1.35;
+    --kami-leading-relaxed: 1.6;
+
+    /* Espacamento entre letras. O assinatura do sistema. */
+    --kami-tracking-tight: 0.04em;
+    --kami-tracking-mono: 0.01em;
+    --kami-tracking-label: 0.16em;
+    --kami-tracking-title: 0.22em;
+    --kami-tracking-wide: 0.28em;
+}
+
+/* --- 1.7 Espacamento ----------------------------------------------------- */
+:root {
+    /* Escala de 2px. Os valores cobrem exatamente o que ja e usado no painel
+       de referencia (2, 4, 6, 7, 8, 10, 12, 14, 16, 20, 24). */
+    --kami-space-1: 2px;
+    --kami-space-2: 4px;
+    --kami-space-3: 6px;
+    --kami-space-4: 8px;
+    --kami-space-5: 10px;
+    --kami-space-6: 12px;
+    --kami-space-7: 14px;
+    --kami-space-8: 16px;
+    --kami-space-10: 20px;
+    --kami-space-12: 24px;
+    --kami-space-16: 32px;
+}
+
+/* --- 1.8 Movimento ------------------------------------------------------- */
+:root {
+    --kami-dur-fast: 120ms;
+    --kami-dur: 200ms;
+    --kami-dur-slow: 420ms;
+    --kami-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --kami-ease-out: cubic-bezier(0, 0, 0.2, 1);
+}
+
+/* --- 1.9 Camadas (z-index) ----------------------------------------------- */
+:root {
+    --kami-z-base: 0;
+    --kami-z-raised: 10;
+    --kami-z-header: 20;
+    --kami-z-sticky: 40;
+    --kami-z-overlay: 60;
+    --kami-z-modal: 80;
+    --kami-z-toast: 100;
+}
+
+/* --- 1.10 Formas ---------------------------------------------------------- */
+:root {
+    /* REGRA: zero. Nenhuma borda arredondada no sistema. */
+    --kami-radius: 0;
+    /* Sombra de painel. Quase imperceptivel; so separa do fundo. */
+    --kami-shadow-panel: 0 0 0 1px rgba(0, 130, 255, 0.03);
+    /* Sombra de foco. */
+    --kami-shadow-focus: 0 0 0 1px var(--kami-accent);
+}
+
+/* ==========================================================================
+ * CAMADA 2 · RESET
+ * ==========================================================================
+ * Minimo e previsivel. Nao remove o que o usuario depende.
+ */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    /* REGRA do sistema: sem cantos arredondados. */
+    border-radius: var(--kami-radius);
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    background-color: var(--kami-void);
+    color: var(--kami-text);
+    font-family: var(--kami-font-display);
+    font-size: var(--kami-text-md);
+    line-height: var(--kami-leading-normal);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+}
+
+/* Grade de fundo da pagina. E a textura que da a sensacao de "chassi".
+   Para desligar: :root { --kami-grid: transparent; } */
+body {
+    background-image:
+        linear-gradient(var(--kami-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--kami-grid) 1px, transparent 1px);
+    background-size: 48px 48px;
+}
+
+/* Vinheta azul no topo. Sutil. */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(circle at top center, var(--kami-vignette), transparent 32%);
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+    margin: 0;
+}
+
+ul,
+ol {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+img,
+svg,
+video,
+canvas {
+    display: block;
+    max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+a {
+    color: var(--kami-accent);
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+
+::selection {
+    background: var(--kami-accent);
+    color: var(--kami-text-inverse);
+}
+
+/* Foco visivel e sempre azul. Nunca remova o outline sem substitui-lo. */
+:focus-visible {
+    outline: 2px solid var(--kami-accent);
+    outline-offset: 2px;
+}
+
+/* Rolagem fina e azulada. */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: var(--kami-track);
+    border-left: var(--kami-border-soft);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--kami-line);
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--kami-accent-dim);
+}
+
+/* ==========================================================================
+ * CAMADA 3 · BASE
+ * ==========================================================================
+ */
+
+/* --- 3.1 Casca da pagina ------------------------------------------------- */
+.kami-shell {
+    min-height: 100vh;
+}
+
+/* Barra de acento de 2px no topo da pagina. Assinatura do sistema. */
+.kami-topline {
+    height: 2px;
+    background: linear-gradient(90deg, var(--kami-accent) 0%, rgba(0, 130, 255, 0.45) 38%, rgba(0, 130, 255, 0) 78%);
+}
+
+/* --- 3.2 Cabecalho (topbar) --------------------------------------------- */
+.kami-topbar {
+    border-bottom: var(--kami-border);
+    background: rgba(5, 7, 10, 0.86);
+    backdrop-filter: blur(8px);
+}
+
+.kami-topbar__inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--kami-space-7);
+    flex-wrap: wrap;
+    padding: var(--kami-space-6) var(--kami-space-8) var(--kami-space-5);
+}
+
+.kami-topbar__brand {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-5);
+    min-width: 0;
+}
+
+.kami-topbar__title {
+    font-size: var(--kami-text-xl);
+    font-weight: 600;
+    letter-spacing: var(--kami-tracking-title);
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow-wrap: anywhere;
+}
+
+.kami-topbar__sub {
+    margin-top: var(--kami-space-1);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.18em;
+    color: var(--kami-text-dim);
+}
+
+.kami-topbar__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-7);
+    flex-wrap: wrap;
+    min-width: 0;
+}
+
+/* Relogio / data atual, alinhado a direita. */
+.kami-clock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    min-width: 0;
+}
+.kami-clock__label {
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.2em;
+    color: var(--kami-text-dim);
+}
+.kami-clock__value {
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    color: var(--kami-text-muted);
+    overflow-wrap: anywhere;
+    text-align: right;
+}
+
+/* --- 3.3 Titulo de secao ------------------------------------------------- */
+/* Bloco + rotulo display + fio ocupando o resto da linha. */
+.kami-section {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-5);
+    min-width: 0;
+}
+.kami-section__mark {
+    width: 10px;
+    height: 10px;
+    flex: none;
+    background: var(--kami-accent);
+    box-shadow: 0 0 10px rgba(0, 130, 255, 0.8);
+}
+.kami-section__label {
+    font-size: var(--kami-text-2xl);
+    font-weight: 600;
+    line-height: var(--kami-leading-tight);
+    letter-spacing: var(--kami-tracking-wide);
+    text-transform: uppercase;
+    color: var(--kami-accent);
+    white-space: nowrap;
+}
+.kami-section__rule {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0, 130, 255, 0.65), rgba(0, 130, 255, 0.12));
+}
+.kami-section__meta {
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    letter-spacing: 0.16em;
+    color: var(--kami-text-dim);
+    white-space: nowrap;
+}
+
+/* --- 3.4 Conteudo -------------------------------------------------------- */
+.kami-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-6);
+    padding: var(--kami-space-6) var(--kami-space-8) var(--kami-space-16);
+    min-width: 0;
+}
+.kami-content > * {
+    min-width: 0;
+}
+
+/* Grade de cartoes. Use .kami-grid--2 / --3 / --4 para variantes fixas e
+   .kami-grid--fluid para colunas que se ajustam ao numero de itens. */
+.kami-grid {
+    display: grid;
+    gap: var(--kami-space-6) var(--kami-space-5);
+    min-width: 0;
+}
+.kami-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.kami-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.kami-grid--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+/* Fluida: os cartoes ocupam a linha toda conforme quantos existem, sem
+   deixar buraco (2 itens -> 50% cada, 3 itens -> 33% cada). */
+.kami-grid--fluid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+/* Rodape de pagina. */
+.kami-footer {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--kami-space-3);
+    border-top: var(--kami-border);
+    padding-top: var(--kami-space-4);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.08em;
+    color: var(--kami-text-dim);
+}
+
+/* ==========================================================================
+ * CAMADA 4 · COMPONENTES VISUAIS
+ * ==========================================================================
+ * As classes aqui desenham o componente. Os componentes Vue em
+ * src/components/ sao apenas wrappers finos com comportamento encima
+ * destas classes. Assim o mesmo visual funciona em HTML puro.
+ */
+
+/* --- 4.1 Botao ----------------------------------------------------------- */
+.kami-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--kami-space-4);
+    padding: 7px var(--kami-space-6);
+    border: var(--kami-border);
+    background: transparent;
+    color: var(--kami-text-muted);
+    font-family: var(--kami-font-display);
+    font-size: var(--kami-text-sm);
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition:
+        color var(--kami-dur-fast) var(--kami-ease),
+        border-color var(--kami-dur-fast) var(--kami-ease),
+        background-color var(--kami-dur-fast) var(--kami-ease);
+}
+.kami-btn:hover:not(:disabled):not([aria-disabled='true']) {
+    border-color: var(--kami-accent);
+    color: var(--kami-accent);
+}
+.kami-btn:active:not(:disabled) {
+    background: var(--kami-accent-soft);
+}
+.kami-btn:disabled,
+.kami-btn[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.kami-btn--primary {
+    border-color: var(--kami-accent);
+    color: var(--kami-accent);
+    background: var(--kami-accent-soft);
+}
+.kami-btn--primary:hover:not(:disabled) {
+    background: rgba(0, 130, 255, 0.22);
+    color: var(--kami-accent-2);
+}
+.kami-btn--solid {
+    border-color: var(--kami-accent);
+    background: var(--kami-accent);
+    color: var(--kami-text-inverse);
+    font-weight: 600;
+}
+.kami-btn--solid:hover:not(:disabled) {
+    background: var(--kami-accent-2);
+    border-color: var(--kami-accent-2);
+    color: var(--kami-text-inverse);
+}
+.kami-btn--danger {
+    border-color: rgba(255, 43, 29, 0.5);
+    color: var(--kami-danger);
+    background: var(--kami-danger-soft);
+}
+.kami-btn--danger:hover:not(:disabled) {
+    border-color: var(--kami-danger);
+    background: rgba(255, 43, 29, 0.16);
+    color: var(--kami-danger);
+}
+.kami-btn--sm {
+    padding: var(--kami-space-2) var(--kami-space-4);
+    font-size: var(--kami-text-xs);
+    letter-spacing: 0.14em;
+}
+.kami-btn--lg {
+    padding: var(--kami-space-5) var(--kami-space-8);
+    font-size: var(--kami-text-md);
+}
+.kami-btn--block {
+    width: 100%;
+}
+
+/* --- 4.2 Painel (moldura de secao) --------------------------------------- */
+/* A moldura carrega o codigo do bloco (ex.: "NOD-01") e o canto cortado em
+   azul no topo direito. E a unidade basica de agrupamento da interface. */
+.kami-panel {
+    position: relative;
+    border: var(--kami-border);
+    background: rgba(10, 10, 10, 0.78);
+    box-shadow: var(--kami-shadow-panel);
+    min-width: 0;
+    max-width: 100%;
+}
+.kami-panel::after {
+    content: '';
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    width: 14px;
+    height: 14px;
+    border-top: var(--kami-border-accent);
+    border-right: var(--kami-border-accent);
+    pointer-events: none;
+}
+.kami-panel__head {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-4);
+    padding: 7px var(--kami-space-6);
+    border-bottom: var(--kami-border);
+    background: var(--kami-surface);
+}
+.kami-panel__tick {
+    width: 6px;
+    height: 6px;
+    flex: none;
+    background: var(--kami-accent);
+    box-shadow: 0 0 6px var(--kami-accent-glow);
+}
+.kami-panel__label {
+    font-size: var(--kami-text-md);
+    font-weight: 600;
+    letter-spacing: var(--kami-tracking-title);
+    text-transform: uppercase;
+    color: var(--kami-accent);
+}
+.kami-panel__code {
+    margin-left: auto;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    letter-spacing: 0.14em;
+    color: var(--kami-text-dim);
+}
+.kami-panel__body {
+    padding: var(--kami-space-6);
+    min-width: 0;
+}
+.kami-panel--dense .kami-panel__body {
+    padding: var(--kami-space-4);
+}
+.kami-panel--flush .kami-panel__body {
+    padding: 0;
+}
+
+/* --- 4.3 Card ------------------------------------------------------------ */
+.kami-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-3);
+    padding: var(--kami-space-6);
+    border: var(--kami-border);
+    background: var(--kami-surface);
+    min-width: 0;
+}
+.kami-card--raised {
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.92), rgba(5, 7, 10, 0.92));
+}
+.kami-card__head {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-4);
+    min-width: 0;
+}
+.kami-card__title {
+    font-size: var(--kami-text-md);
+    font-weight: 600;
+    letter-spacing: var(--kami-tracking-label);
+    text-transform: uppercase;
+    color: var(--kami-text-muted);
+}
+.kami-card__code {
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    letter-spacing: 0.14em;
+    color: var(--kami-text-dim);
+}
+.kami-card__foot {
+    margin-top: auto;
+    padding-top: var(--kami-space-5);
+}
+
+/* --- 4.4 Card de metrica (stat) ----------------------------------------- */
+/* Etiqueta azul apoiada na borda superior + valor grande + unidade menor.
+   E o cartao de leitura rapida: "quanto", "agora". */
+.kami-stat {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-1);
+    margin-top: var(--kami-space-7);
+    padding: 19px var(--kami-space-7) var(--kami-space-6);
+    border: var(--kami-border);
+    background: linear-gradient(180deg, rgba(10, 10, 10, 0.92), rgba(5, 7, 10, 0.92));
+    min-width: 0;
+}
+.kami-stat__code {
+    position: absolute;
+    top: -14px;
+    left: 10px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 27px;
+    padding: var(--kami-space-2) var(--kami-space-5);
+    border: var(--kami-border-accent);
+    background: var(--kami-surface-2);
+    color: var(--kami-accent);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    line-height: 1.35;
+    letter-spacing: 0.2em;
+    box-shadow: 0 0 10px rgba(0, 130, 255, 0.18);
+    white-space: nowrap;
+    overflow: visible;
+}
+.kami-stat__label {
+    margin-top: var(--kami-space-1);
+    font-size: var(--kami-text-md);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--kami-text-muted);
+}
+.kami-stat__value {
+    font-family: var(--kami-font-display);
+    font-weight: 600;
+    font-size: clamp(28px, 2.5vw, 40px);
+    line-height: 1.18;
+    padding-bottom: var(--kami-space-1);
+    letter-spacing: 0.015em;
+    color: var(--kami-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.kami-stat__unit {
+    margin-left: 7px;
+    font-family: var(--kami-font-mono);
+    font-size: 0.42em;
+    font-weight: 400;
+    vertical-align: 0.35em;
+    letter-spacing: 0.04em;
+    color: var(--kami-text-muted);
+}
+.kami-stat__sub {
+    font-size: var(--kami-text-md);
+    color: var(--kami-text-dim);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.kami-stat__foot {
+    margin-top: auto;
+    padding-top: var(--kami-space-5);
+}
+
+/* --- 4.5 Chip de status -------------------------------------------------- */
+.kami-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: var(--kami-space-2) var(--kami-space-5) var(--kami-space-2) var(--kami-space-4);
+    border: var(--kami-border);
+    background: var(--kami-surface);
+    font-size: var(--kami-text-md);
+    font-weight: 600;
+    letter-spacing: var(--kami-tracking-label);
+    white-space: nowrap;
+}
+.kami-chip__dot {
+    width: 7px;
+    height: 7px;
+    flex: none;
+    background: currentColor;
+    box-shadow: 0 0 7px currentColor;
+}
+.kami-chip--ok {
+    color: var(--kami-accent);
+    border-color: var(--kami-accent-dim);
+    background: var(--kami-ok-soft);
+}
+.kami-chip--warn {
+    color: var(--kami-warn);
+    border-color: rgba(255, 170, 0, 0.4);
+    background: var(--kami-warn-soft);
+}
+.kami-chip--danger {
+    color: var(--kami-danger);
+    border-color: rgba(255, 43, 29, 0.45);
+    background: var(--kami-danger-soft);
+}
+.kami-chip--live {
+    color: var(--kami-live);
+    border-color: rgba(0, 255, 0, 0.4);
+    background: var(--kami-live-soft);
+}
+.kami-chip--dim {
+    color: var(--kami-text-dim);
+}
+/* So o estado critico pisca. Os demais nao animam. */
+.kami-chip--danger .kami-chip__dot {
+    animation: kami-blink 1.4s steps(2, end) infinite;
+}
+
+/* --- 4.6 Tag ------------------------------------------------------------- */
+.kami-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: var(--kami-space-1) var(--kami-space-3);
+    border: var(--kami-border);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+    white-space: nowrap;
+}
+.kami-tag--accent {
+    color: var(--kami-accent);
+    border-color: var(--kami-accent-dim);
+    background: var(--kami-accent-soft);
+}
+.kami-tag--warn {
+    color: var(--kami-warn);
+    border-color: rgba(255, 170, 0, 0.4);
+    background: var(--kami-warn-soft);
+}
+.kami-tag--danger {
+    color: var(--kami-danger);
+    border-color: rgba(255, 43, 29, 0.45);
+    background: var(--kami-danger-soft);
+}
+
+/* --- 4.7 Lista de definicoes (rotulo / valor) ---------------------------- */
+.kami-dl {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px var(--kami-space-7);
+    margin: 0;
+}
+.kami-dl > div {
+    min-width: 0;
+}
+.kami-dl--1 {
+    grid-template-columns: minmax(0, 1fr);
+}
+.kami-dl--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.kami-dl--4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.kami-dl dt {
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.16em;
+    color: var(--kami-text-dim);
+}
+.kami-dl dd {
+    margin: 1px 0 0;
+    font-size: var(--kami-text-md);
+    color: var(--kami-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kami-dl--wide {
+    grid-column: 1 / -1;
+}
+
+/* --- 4.8 Tabela ---------------------------------------------------------- */
+.kami-table-wrap {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+}
+.kami-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--kami-text-md);
+}
+.kami-table th {
+    text-align: left;
+    font-weight: 400;
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.16em;
+    color: var(--kami-text-dim);
+    padding: var(--kami-space-2) var(--kami-space-3);
+    border-bottom: var(--kami-border);
+    white-space: nowrap;
+}
+.kami-table td {
+    padding: 7px var(--kami-space-3);
+    border-bottom: var(--kami-border-soft);
+    color: var(--kami-text);
+    white-space: nowrap;
+}
+.kami-table tbody tr:hover td {
+    background: rgba(0, 130, 255, 0.05);
+}
+.kami-table--numeric th:last-child,
+.kami-table--numeric td:last-child,
+.kami-table__num {
+    text-align: right;
+}
+.kami-table--dense td {
+    padding: var(--kami-space-2) var(--kami-space-3);
+}
+
+/* --- 4.9 Regua segmentada (gauge) ---------------------------------------- */
+/* Barra dividida em 20 celulas. As celulas acesas vao ate o valor atual;
+   o fundo esmaece marca as faixas de qualidade; o marcador branco aponta a
+   posicao exata; as linhas ambar/vermelha marcam os limites. */
+.kami-gauge {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-2);
+    width: 100%;
+    min-width: 0;
+}
+.kami-gauge__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--kami-space-4);
+    min-width: 0;
+}
+.kami-gauge__caption {
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.kami-gauge__value {
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+.kami-gauge__track {
+    position: relative;
+    height: 16px;
+    border: var(--kami-border);
+    background: var(--kami-track);
+}
+.kami-gauge__cells {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    gap: 2px;
+}
+.kami-gauge__cell {
+    flex: 1;
+    min-width: 0;
+    background: currentColor;
+    opacity: 0.18;
+}
+.kami-gauge__cell--on {
+    opacity: 0.95;
+}
+.kami-gauge__cell--ok {
+    color: var(--kami-ok);
+}
+.kami-gauge__cell--warn {
+    color: var(--kami-warn);
+}
+.kami-gauge__cell--danger {
+    color: var(--kami-danger);
+}
+.kami-gauge__limit {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 2px;
+    margin-left: -1px;
+    z-index: 1;
+}
+.kami-gauge__limit--warn {
+    background: var(--kami-warn);
+    box-shadow: 0 0 6px rgba(255, 170, 0, 0.55);
+}
+.kami-gauge__limit--danger {
+    background: var(--kami-danger);
+    box-shadow: 0 0 6px rgba(255, 43, 29, 0.55);
+}
+.kami-gauge__marker {
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    width: 2px;
+    margin-left: -1px;
+    background: var(--kami-text);
+    box-shadow:
+        0 0 0 1px rgba(0, 0, 0, 0.65),
+        0 0 8px rgba(230, 232, 238, 0.55);
+    z-index: 2;
+}
+.kami-gauge__ticks {
+    position: relative;
+    height: 14px;
+}
+.kami-gauge__tick {
+    position: absolute;
+    top: 0;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-sm);
+    line-height: 1;
+    color: var(--kami-text-dim);
+    white-space: nowrap;
+}
+.kami-gauge--compact {
+    gap: var(--kami-space-1);
+}
+.kami-gauge--compact .kami-gauge__track {
+    height: 13px;
+}
+.kami-gauge--empty .kami-gauge__cell {
+    opacity: 0.12;
+}
+
+/* --- 4.10 Banner de alerta ----------------------------------------------- */
+/* Interrupcao de tela cheia. As listras de perigo delimitam o bloco. */
+.kami-banner {
+    --kami-banner-color: var(--kami-warn);
+    background: var(--kami-banner-color);
+    color: var(--kami-text-inverse);
+    border-bottom: 1px solid #000;
+}
+.kami-banner--danger {
+    --kami-banner-color: var(--kami-danger);
+}
+.kami-banner--info {
+    --kami-banner-color: var(--kami-accent);
+}
+.kami-banner__stripes {
+    height: 9px;
+    background: repeating-linear-gradient(135deg, #000000 0 9px, var(--kami-banner-color) 9px 18px);
+}
+.kami-banner__inner {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-8);
+    padding: var(--kami-space-5) var(--kami-space-8) var(--kami-space-6);
+    min-width: 0;
+}
+.kami-banner__icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    flex: none;
+    border: 2px solid var(--kami-text-inverse);
+    font-family: var(--kami-font-display);
+    font-size: 30px;
+    font-weight: 700;
+    line-height: var(--kami-leading-tight);
+}
+.kami-banner__title {
+    font-family: var(--kami-font-display);
+    font-size: clamp(24px, 2.7vw, 38px);
+    font-weight: 700;
+    line-height: var(--kami-leading-tight);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+.kami-banner__sub {
+    margin-top: 5px;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    line-height: 1.3;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    overflow-wrap: anywhere;
+}
+.kami-banner__meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--kami-space-1);
+    margin-left: auto;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.1em;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* --- 4.11 Campos de formulario ------------------------------------------- */
+.kami-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-2);
+    min-width: 0;
+}
+.kami-field__label {
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+}
+.kami-field__label--required::after {
+    content: ' *';
+    color: var(--kami-accent);
+}
+.kami-input,
+.kami-select,
+.kami-textarea {
+    width: 100%;
+    padding: 7px var(--kami-space-5);
+    border: var(--kami-border);
+    background: var(--kami-surface);
+    color: var(--kami-text);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    transition:
+        border-color var(--kami-dur-fast) var(--kami-ease),
+        box-shadow var(--kami-dur-fast) var(--kami-ease);
+}
+.kami-textarea {
+    min-height: 84px;
+    resize: vertical;
+    line-height: var(--kami-leading-relaxed);
+}
+.kami-select {
+    appearance: none;
+    padding-right: var(--kami-space-10);
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--kami-text-dim) 50%),
+        linear-gradient(135deg, var(--kami-text-dim) 50%, transparent 50%);
+    background-position:
+        calc(100% - 15px) 15px,
+        calc(100% - 10px) 15px;
+    background-size:
+        5px 5px,
+        5px 5px;
+    background-repeat: no-repeat;
+}
+.kami-input::placeholder,
+.kami-textarea::placeholder {
+    color: var(--kami-text-dim);
+}
+.kami-input:hover:not(:disabled),
+.kami-select:hover:not(:disabled),
+.kami-textarea:hover:not(:disabled) {
+    border-color: var(--kami-line-strong);
+}
+.kami-input:focus,
+.kami-select:focus,
+.kami-textarea:focus {
+    outline: none;
+    border-color: var(--kami-accent);
+    box-shadow: var(--kami-shadow-focus);
+}
+.kami-input:disabled,
+.kami-select:disabled,
+.kami-textarea:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+.kami-field__hint {
+    font-size: var(--kami-text-sm);
+    color: var(--kami-text-dim);
+}
+.kami-field__error {
+    font-size: var(--kami-text-sm);
+    color: var(--kami-danger);
+    letter-spacing: 0.06em;
+}
+.kami-field--invalid .kami-input,
+.kami-field--invalid .kami-select,
+.kami-field--invalid .kami-textarea {
+    border-color: var(--kami-danger);
+}
+
+/* Selecao multipla: o gatilho parece um select; o painel usa caixas para
+   permitir varias escolhas sem Ctrl. */
+.kami-multiselect__campo {
+    position: relative;
+}
+.kami-multiselect__trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--kami-space-3);
+    text-align: left;
+}
+.kami-multiselect__trigger[aria-expanded='true'] {
+    border-color: var(--kami-accent);
+    box-shadow: var(--kami-shadow-focus);
+}
+.kami-multiselect__resumo {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kami-multiselect__resumo--vazio {
+    color: var(--kami-text-dim);
+}
+.kami-multiselect__painel {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: var(--kami-z-sticky);
+    border: var(--kami-border);
+    background: var(--kami-surface-2);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.65);
+}
+.kami-multiselect__painel--acima {
+    top: auto;
+    bottom: calc(100% + 4px);
+}
+.kami-multiselect__opcoes {
+    max-height: 220px;
+    padding: var(--kami-space-2) 0;
+    overflow-y: auto;
+}
+.kami-multiselect__opcao {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-3);
+    padding: var(--kami-space-3) var(--kami-space-5);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    cursor: pointer;
+    transition: background-color var(--kami-dur-fast) var(--kami-ease);
+}
+.kami-multiselect__opcao:hover:not(.kami-multiselect__opcao--desabilitada),
+.kami-multiselect__opcao:focus-within {
+    background: var(--kami-accent-soft);
+}
+.kami-multiselect__opcao--desabilitada {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.kami-multiselect__check {
+    appearance: none;
+    display: grid;
+    place-content: center;
+    flex: none;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    border: var(--kami-border);
+    background: var(--kami-surface);
+    transition: border-color var(--kami-dur-fast) var(--kami-ease);
+}
+.kami-multiselect__check::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--kami-accent);
+    transform: scale(0);
+    transition: transform var(--kami-dur-fast) var(--kami-ease);
+}
+.kami-multiselect__check:checked {
+    border-color: var(--kami-accent);
+}
+.kami-multiselect__check:checked::before {
+    transform: scale(1);
+}
+.kami-multiselect__check:focus-visible {
+    outline: none;
+    box-shadow: var(--kami-shadow-focus);
+}
+
+/* Grupo de botoes lado a lado. */
+.kami-actions {
+    display: flex;
+    gap: var(--kami-space-4);
+    flex-wrap: wrap;
+}
+
+/* --- 4.12 Abas ----------------------------------------------------------- */
+.kami-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    border-bottom: var(--kami-border);
+}
+.kami-tab {
+    padding: var(--kami-space-4) var(--kami-space-7);
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    color: var(--kami-text-dim);
+    font-family: var(--kami-font-display);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    transition:
+        color var(--kami-dur-fast) var(--kami-ease),
+        background-color var(--kami-dur-fast) var(--kami-ease);
+}
+.kami-tab:hover {
+    color: var(--kami-text);
+}
+.kami-tab--active {
+    color: var(--kami-accent);
+    border-color: var(--kami-line);
+    background: var(--kami-surface);
+    box-shadow: inset 0 2px 0 var(--kami-accent);
+}
+
+/* --- 4.13 Modal ---------------------------------------------------------- */
+.kami-modal__overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--kami-z-modal);
+    display: grid;
+    place-items: center;
+    padding: var(--kami-space-12);
+    background: rgba(0, 0, 0, 0.75);
+}
+.kami-modal {
+    width: min(100%, 560px);
+    max-height: 88vh;
+    overflow: auto;
+    border: var(--kami-border);
+    background: var(--kami-surface-2);
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
+}
+.kami-modal__head {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-4);
+    padding: var(--kami-space-5) var(--kami-space-6);
+    border-bottom: var(--kami-border);
+    background: var(--kami-surface);
+}
+.kami-modal__title {
+    font-size: var(--kami-text-lg);
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--kami-accent);
+}
+.kami-modal__close {
+    margin-left: auto;
+    padding: var(--kami-space-1) var(--kami-space-3);
+    border: var(--kami-border);
+    background: transparent;
+    color: var(--kami-text-dim);
+    font-size: var(--kami-text-lg);
+    line-height: 1;
+}
+.kami-modal__close:hover {
+    border-color: var(--kami-danger);
+    color: var(--kami-danger);
+}
+.kami-modal__body {
+    padding: var(--kami-space-7) var(--kami-space-6);
+}
+.kami-modal__foot {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--kami-space-4);
+    padding: var(--kami-space-5) var(--kami-space-6);
+    border-top: var(--kami-border);
+}
+
+/* --- 4.14 Estado vazio / erro ------------------------------------------- */
+.kami-empty {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-3);
+    padding: var(--kami-space-8) var(--kami-space-4);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+}
+.kami-empty--danger {
+    color: var(--kami-danger);
+}
+.kami-empty__title {
+    font-size: var(--kami-text-lg);
+    letter-spacing: 0.2em;
+}
+
+/* --- 4.15 Carregando ---------------------------------------------------- */
+.kami-spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    flex: none;
+    border: 1px solid var(--kami-accent);
+    background: linear-gradient(90deg, var(--kami-accent) 50%, transparent 50%);
+    animation: kami-spin 900ms steps(8, end) infinite;
+}
+.kami-loading {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-4);
+    padding: var(--kami-space-7) var(--kami-space-4);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+}
+
+/* --- 4.16 Linha de estado (dot + texto) ---------------------------------- */
+.kami-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    flex: none;
+    vertical-align: middle;
+    background: currentColor;
+    box-shadow: 0 0 6px currentColor;
+}
+.kami-dot--ok {
+    color: var(--kami-accent);
+}
+.kami-dot--warn {
+    color: var(--kami-warn);
+}
+.kami-dot--danger {
+    color: var(--kami-danger);
+}
+.kami-dot--live {
+    color: var(--kami-live);
+}
+.kami-dot--dim {
+    color: var(--kami-text-dim);
+}
+
+/* --- 4.17 Faixa de listras diagonais (hatch) ---------------------------- */
+/* Textura de "carga" ou de faixa de risco. Azul por padrao. */
+.kami-hatch {
+    background-image: repeating-linear-gradient(135deg, rgba(0, 130, 255, 0.18) 0 5px, transparent 5px 10px);
+}
+.kami-hatch--danger {
+    background-image: repeating-linear-gradient(135deg, rgba(255, 43, 29, 0.2) 0 5px, transparent 5px 10px);
+}
+
+/* --- 4.18 Linha divisoria com legenda ------------------------------------ */
+.kami-divider {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-4);
+    color: var(--kami-text-dim);
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+.kami-divider::before,
+.kami-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--kami-line);
+}
+
+/* ==========================================================================
+ * CAMADA 5 · UTILITARIOS
+ * ==========================================================================
+ * Classes de uso pontual. Use com parcimonia: nao constua layout inteiro
+ * com utilitarios quando existe um componente.
+ */
+
+/* --- Tipografia ---------------------------------------------------------- */
+.kami-mono {
+    font-family: var(--kami-font-mono);
+    font-size: 0.95em;
+    letter-spacing: var(--kami-tracking-mono);
+}
+.kami-num {
+    font-family: var(--kami-font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: var(--kami-tracking-mono);
+}
+.kami-upper {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+}
+/* Rotulo padrao do sistema: micro texto uppercase com tracking largo. */
+.kami-label {
+    font-size: var(--kami-text-sm);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+}
+.kami-title {
+    font-size: var(--kami-text-lg);
+    font-weight: 600;
+    letter-spacing: var(--kami-tracking-label);
+    text-transform: uppercase;
+    color: var(--kami-text);
+}
+
+/* --- Cor ----------------------------------------------------------------- */
+.kami-text {
+    color: var(--kami-text);
+}
+.kami-muted {
+    color: var(--kami-text-muted);
+}
+.kami-dim {
+    color: var(--kami-text-dim);
+}
+.kami-accent {
+    color: var(--kami-accent);
+}
+.kami-ok {
+    color: var(--kami-ok);
+}
+.kami-warn {
+    color: var(--kami-warn);
+}
+.kami-danger {
+    color: var(--kami-danger);
+}
+.kami-live {
+    color: var(--kami-live);
+}
+
+/* --- Layout -------------------------------------------------------------- */
+.kami-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.kami-wrap-anywhere {
+    overflow-wrap: anywhere;
+}
+.kami-row {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-4);
+    min-width: 0;
+}
+.kami-row--between {
+    justify-content: space-between;
+}
+.kami-row--end {
+    justify-content: flex-end;
+}
+.kami-col {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-3);
+    min-width: 0;
+}
+.kami-spacer {
+    flex: 1;
+}
+
+/* --- Utilitarios -------------------------------------------------------- */
+.kami-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ==========================================================================
+ * ANIMACOES
+ * ==========================================================================
+ */
+
+@keyframes kami-blink {
+    50% {
+        opacity: 0.25;
+    }
+}
+
+@keyframes kami-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes kami-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* ==========================================================================
+ * MOVIMENTO REDUZIDO
+ * ==========================================================================
+ * Respeita a preferencia do sistema. Nenhuma informacao pode depender
+ * exclusivamente de animacao.
+ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    .kami-spinner {
+        animation: none !important;
+    }
+}
