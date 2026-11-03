@@ -72,7 +72,7 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     await expect(page.locator('#atributo-valor-0-0')).toHaveValue('Levantou 12 pedras.');
 
     await page.setViewportSize({ width: 1280, height: 900 });
-    await page.getByRole('button', { name: '+ SEÇÃO' }).click();
+    await page.getByRole('button', { name: 'ADICIONAR SEÇÃO' }).click();
     await page.getByRole('button', { name: 'POSICIONAMENTO', exact: true }).click();
     await expect(page.locator('.site-editor__posicionamento-card')).toHaveCount(2);
 
@@ -293,7 +293,7 @@ test('cria uma seção de cabeçalho com título, imagem opcional e atributos li
         await page.goto(`/fichas/${sheet.id}`);
         await waitForHydration(page);
 
-        await page.getByRole('button', { name: '+ SEÇÃO' }).click();
+        await page.getByRole('button', { name: 'ADICIONAR SEÇÃO' }).click();
         await page.getByLabel('TIPO', { exact: true }).selectOption('2');
         await page.getByLabel('Título do cabeçalho', { exact: true }).fill('Lyra Voss');
         await page.getByLabel('Subtítulo do cabeçalho', { exact: true }).fill('Cartógrafa de ruínas');
@@ -824,7 +824,7 @@ test('ficha ao vivo abre em modo somente leitura com mock de IRT', async ({ page
     const authenticSheet = (await (await page.request.get(`/api/fichas/${sheetId}`)).json()) as SheetDetail;
 
     try {
-        await page.getByRole('link', { name: '← FICHAS' }).click();
+        await page.locator('.site-editor__voltar').click();
         await page.waitForURL('**/fichas');
 
         const liveSheet: SheetDetail = {

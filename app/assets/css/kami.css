@@ -683,6 +683,11 @@ a:hover {
     width: 100%;
 }
 
+.kami-icon {
+    display: block;
+    flex: none;
+}
+
 /* --- 4.2 Painel (moldura de secao) --------------------------------------- */
 /* A moldura carrega o codigo do bloco (ex.: "NOD-01") e o canto cortado em
    azul no topo direito. E a unidade basica de agrupamento da interface. */

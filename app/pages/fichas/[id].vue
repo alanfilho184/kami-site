@@ -31,8 +31,17 @@ import {
     SHEET_LAYOUT_DEFAULT_SPAN,
     SHEET_LAYOUT_ROWS_MAX
 } from '~~/shared/utils/sheet-layout';
+import {
+    focusDialog,
+    lockDialogScroll,
+    rememberDialogFocus,
+    restoreDialogFocus,
+    trapDialogTab,
+    unlockDialogScroll
+} from '~/utils/dialog';
 
 type EditorMode = 'editar' | 'posicionamento' | 'estrutura';
+type EditorDialog = 'preview' | 'settings' | 'bar';
 
 interface NormalizedDraft {
     name: string;
@@ -699,6 +708,7 @@ export default defineNuxtComponent({
             previewOpen: false,
             settingsOpen: false,
             barSettingsAttribute: null as SheetAttribute | null,
+            isMobileViewport: false,
             expandedLists: [] as SheetAttribute[],
             dragSectionIndex: null as number | null,
             dragOverSectionIndex: null as number | null,
@@ -888,6 +898,50 @@ export default defineNuxtComponent({
             }
 
             return `Seção ${this.activeSection?.name ?? ''}`;
+        },
+        activeDialog(): EditorDialog | null {
+            if (this.previewOpen) {
+                return 'preview';
+            }
+
+            if (this.settingsOpen) {
+                return 'settings';
+            }
+
+            if (this.barSettingsAttribute) {
+                return 'bar';
+            }
+
+            return null;
+        }
+    },
+    watch: {
+        activeDialog(next: EditorDialog | null, previous: EditorDialog | null): void {
+            if (next === previous) {
+                return;
+            }
+
+            if (!previous && next) {
+                rememberDialogFocus();
+                lockDialogScroll();
+            }
+
+            if (previous && !next) {
+                unlockDialogScroll();
+                restoreDialogFocus();
+            }
+
+            if (next) {
+                const refs: Record<EditorDialog, string> = {
+                    preview: 'previewDialog',
+                    settings: 'settingsDialog',
+                    bar: 'barDialog'
+                };
+
+                void this.$nextTick(() => {
+                    focusDialog((this.$refs[refs[next]] as HTMLElement | undefined) ?? null);
+                });
+            }
         }
     },
     created() {
@@ -896,12 +950,15 @@ export default defineNuxtComponent({
         }
     },
     mounted() {
+        this.updateViewport();
         window.addEventListener('beforeunload', this.handleBeforeUnload);
         window.addEventListener('keydown', this.handleKeydown);
+        window.addEventListener('resize', this.updateViewport);
     },
     beforeUnmount() {
         window.removeEventListener('beforeunload', this.handleBeforeUnload);
         window.removeEventListener('keydown', this.handleKeydown);
+        window.removeEventListener('resize', this.updateViewport);
     },
     beforeRouteLeave(_to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) {
         if (!this.hasChanges || this.isSaving || this.isDeleting) {
@@ -1089,6 +1146,21 @@ export default defineNuxtComponent({
 
             this.expandedLists.push(attribute);
         },
+        updateViewport(): void {
+            this.isMobileViewport = window.matchMedia('(max-width: 900px)').matches;
+        },
+        handleDialogKeydown(name: EditorDialog, event: KeyboardEvent): void {
+            const refs: Record<EditorDialog, string> = {
+                preview: 'previewDialog',
+                settings: 'settingsDialog',
+                bar: 'barDialog'
+            };
+            const element = this.$refs[refs[name]] as HTMLElement | undefined;
+
+            if (element) {
+                trapDialogTab(event, element);
+            }
+        },
         togglePreview(): void {
             this.previewOpen = !this.previewOpen;
 
@@ -1103,10 +1175,6 @@ export default defineNuxtComponent({
             this.previewOpen = false;
             this.barSettingsAttribute = null;
             this.showDeleteConfirm = false;
-
-            void this.$nextTick(() => {
-                (this.$refs.settingsDialog as HTMLElement | undefined)?.focus();
-            });
         },
         closeSettings(): void {
             this.settingsOpen = false;
@@ -1451,6 +1519,11 @@ export default defineNuxtComponent({
         goToSection(sectionIndex: number): void {
             this.selectSection(sectionIndex);
             this.setMode('editar');
+        },
+        scrollToInspector(): void {
+            const panel = this.$refs.inspectorPanel as HTMLElement | undefined;
+
+            panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         },
         selectSection(index: number): void {
             if (index >= 0 && index < this.sections.length) {
@@ -2075,10 +2148,6 @@ export default defineNuxtComponent({
             this.barSettingsAttribute = attribute;
             this.settingsOpen = false;
             this.previewOpen = false;
-
-            void this.$nextTick(() => {
-                (this.$refs.barDialog as HTMLElement | undefined)?.focus();
-            });
         },
         closeBarSettings(): void {
             this.barSettingsAttribute = null;
@@ -2615,7 +2684,11 @@ export default defineNuxtComponent({
                             to="/fichas"
                             class="site-editor__voltar"
                         >
-                            ← FICHAS
+                            <KamiIcon
+                                name="arrow-left"
+                                :size="16"
+                            />
+                            FICHAS
                         </NuxtLink>
                         <p class="site-eyebrow">EDITOR DE FICHA</p>
                         <h1 class="site-editor__titulo">
@@ -2805,9 +2878,14 @@ export default defineNuxtComponent({
                             <KamiButton
                                 size="sm"
                                 :disabled="!canAddSection()"
+                                aria-label="ADICIONAR SEÇÃO"
                                 @click="addSection"
                             >
-                                <span class="site-editor__sinal">+</span> SEÇÃO
+                                <KamiIcon
+                                    name="plus"
+                                    :size="16"
+                                />
+                                SEÇÃO
                             </KamiButton>
                         </div>
                     </div>
@@ -2875,9 +2953,14 @@ export default defineNuxtComponent({
                         <KamiButton
                             size="sm"
                             :disabled="!canAddSection()"
+                            aria-label="ADICIONAR SEÇÃO"
                             @click="addSection"
                         >
-                            <span class="site-editor__sinal">+</span> SEÇÃO
+                            <KamiIcon
+                                name="plus"
+                                :size="16"
+                            />
+                            SEÇÃO
                         </KamiButton>
                     </aside>
 
@@ -2940,7 +3023,10 @@ export default defineNuxtComponent({
                                         aria-label="Mover seção para cima"
                                         @click="moveSection(activeSectionIndex, -1)"
                                     >
-                                        ↑
+                                        <KamiIcon
+                                            name="arrow-up"
+                                            :size="18"
+                                        />
                                     </KamiButton>
                                     <KamiButton
                                         class="site-editor__icone"
@@ -2949,7 +3035,10 @@ export default defineNuxtComponent({
                                         aria-label="Mover seção para baixo"
                                         @click="moveSection(activeSectionIndex, 1)"
                                     >
-                                        ↓
+                                        <KamiIcon
+                                            name="arrow-down"
+                                            :size="18"
+                                        />
                                     </KamiButton>
                                     <KamiButton
                                         size="sm"
@@ -3017,7 +3106,10 @@ export default defineNuxtComponent({
                                                 aria-label="Mover status para cima"
                                                 @click="moveStatusItem(index, -1)"
                                             >
-                                                ↑
+                                                <KamiIcon
+                                                    name="arrow-up"
+                                                    :size="16"
+                                                />
                                             </KamiButton>
                                             <KamiButton
                                                 size="sm"
@@ -3025,7 +3117,10 @@ export default defineNuxtComponent({
                                                 aria-label="Mover status para baixo"
                                                 @click="moveStatusItem(index, 1)"
                                             >
-                                                ↓
+                                                <KamiIcon
+                                                    name="arrow-down"
+                                                    :size="16"
+                                                />
                                             </KamiButton>
                                             <KamiButton
                                                 size="sm"
@@ -3033,7 +3128,10 @@ export default defineNuxtComponent({
                                                 aria-label="Remover status"
                                                 @click="removeStatusItem(index)"
                                             >
-                                                ×
+                                                <KamiIcon
+                                                    name="trash"
+                                                    :size="16"
+                                                />
                                             </KamiButton>
                                         </div>
                                         <label class="site-editor__status-icone">
@@ -3054,7 +3152,11 @@ export default defineNuxtComponent({
                                     :disabled="activeStatusItems.length >= 32"
                                     @click="addStatusItem"
                                 >
-                                    <span class="site-editor__sinal">+</span> STATUS
+                                    <KamiIcon
+                                        name="plus"
+                                        :size="16"
+                                    />
+                                    STATUS
                                 </KamiButton>
                             </div>
 
@@ -3086,7 +3188,10 @@ export default defineNuxtComponent({
                                                             aria-label="Remover coluna"
                                                             @click="removeTableColumn(columnIndex)"
                                                         >
-                                                            ×
+                                                            <KamiIcon
+                                                                name="trash"
+                                                                :size="16"
+                                                            />
                                                         </KamiButton>
                                                     </div>
                                                 </th>
@@ -3117,7 +3222,10 @@ export default defineNuxtComponent({
                                                         aria-label="Remover linha"
                                                         @click="removeTableRow(rowIndex)"
                                                     >
-                                                        ×
+                                                        <KamiIcon
+                                                            name="trash"
+                                                            :size="16"
+                                                        />
                                                     </KamiButton>
                                                 </td>
                                             </tr>
@@ -3130,14 +3238,22 @@ export default defineNuxtComponent({
                                         :disabled="activeTableValue.rows.length >= 100"
                                         @click="addTableRow"
                                     >
-                                        <span class="site-editor__sinal">+</span> LINHA
+                                        <KamiIcon
+                                            name="plus"
+                                            :size="16"
+                                        />
+                                        LINHA
                                     </KamiButton>
                                     <KamiButton
                                         size="sm"
                                         :disabled="activeTableValue.columns.length >= 8"
                                         @click="addTableColumn"
                                     >
-                                        <span class="site-editor__sinal">+</span> COLUNA
+                                        <KamiIcon
+                                            name="plus"
+                                            :size="16"
+                                        />
+                                        COLUNA
                                     </KamiButton>
                                 </div>
                             </div>
@@ -3272,7 +3388,7 @@ export default defineNuxtComponent({
                                             'site-editor__atributo--expandido':
                                                 attribute.type === 3 && isListExpanded(attribute)
                                         }"
-                                        draggable="true"
+                                        :draggable="!isMobileViewport"
                                         @dragstart="handleAttributeDragStart(attributeIndex, $event)"
                                         @dragover="handleAttributeDragOver(attributeIndex, $event)"
                                         @drop.prevent="handleAttributeDrop(attributeIndex)"
@@ -3283,7 +3399,10 @@ export default defineNuxtComponent({
                                             aria-hidden="true"
                                             title="Arrastar para reordenar"
                                         >
-                                            ⋮⋮
+                                            <KamiIcon
+                                                name="grip"
+                                                :size="16"
+                                            />
                                         </span>
 
                                         <div class="site-editor__campo site-editor__campo--tipo">
@@ -3442,14 +3561,20 @@ export default defineNuxtComponent({
                                                     :aria-label="`Ajustes da barra ${attribute.name || 'atributo'}`"
                                                     @click="openBarSettings(attribute)"
                                                 >
-                                                    ⚙
+                                                    <KamiIcon
+                                                        name="settings"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                                 <KamiButton
                                                     size="sm"
                                                     aria-label="Duplicar atributo"
                                                     @click="duplicateAttribute(attribute)"
                                                 >
-                                                    ⧉
+                                                    <KamiIcon
+                                                        name="copy"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                                 <KamiButton
                                                     size="sm"
@@ -3457,7 +3582,10 @@ export default defineNuxtComponent({
                                                     aria-label="Mover atributo para cima"
                                                     @click="moveAttribute(activeSection, attributeIndex, -1)"
                                                 >
-                                                    ↑
+                                                    <KamiIcon
+                                                        name="arrow-up"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                                 <KamiButton
                                                     size="sm"
@@ -3465,7 +3593,10 @@ export default defineNuxtComponent({
                                                     aria-label="Mover atributo para baixo"
                                                     @click="moveAttribute(activeSection, attributeIndex, 1)"
                                                 >
-                                                    ↓
+                                                    <KamiIcon
+                                                        name="arrow-down"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                                 <KamiButton
                                                     size="sm"
@@ -3473,7 +3604,10 @@ export default defineNuxtComponent({
                                                     aria-label="Remover atributo"
                                                     @click="removeAttribute(activeSection, attributeIndex)"
                                                 >
-                                                    ×
+                                                    <KamiIcon
+                                                        name="trash"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                             </div>
                                         </div>
@@ -3519,7 +3653,11 @@ export default defineNuxtComponent({
                                                 :disabled="!canAddListItem(attribute)"
                                                 @click="addListItem(attribute)"
                                             >
-                                                <span class="site-editor__sinal">+</span> ITEM
+                                                <KamiIcon
+                                                    name="plus"
+                                                    :size="16"
+                                                />
+                                                ITEM
                                             </KamiButton>
                                         </div>
                                     </div>
@@ -3532,7 +3670,11 @@ export default defineNuxtComponent({
                                     aria-label="ADICIONAR ATRIBUTO"
                                     @click="addAttribute(activeSection)"
                                 >
-                                    <span class="site-editor__sinal">+</span> ATRIBUTO
+                                    <KamiIcon
+                                        name="plus"
+                                        :size="16"
+                                    />
+                                    ATRIBUTO
                                 </KamiButton>
                             </div>
                         </template>
@@ -3623,32 +3765,41 @@ export default defineNuxtComponent({
                                                         dragStructureFrom?.attribute === row.index
                                                     )
                                             }"
-                                            draggable="true"
+                                            :draggable="!isMobileViewport"
                                             @dragstart="handleStructureDragStart(entry.index, row.index, $event)"
                                             @dragover="handleStructureDragOver(entry.index, row.index, $event)"
                                             @drop.prevent="handleStructureDrop(entry.index, row.index)"
                                             @dragend="clearStructureDrag"
                                         >
-                                            <span
-                                                class="site-editor__alca"
-                                                aria-hidden="true"
-                                            >
-                                                ⋮⋮
-                                            </span>
-                                            <span class="site-editor__posicionamento-nome">{{
-                                                row.attribute.name || 'SEM NOME'
-                                            }}</span>
-                                            <span class="site-editor__posicionamento-tipo">{{
-                                                attributeTypeLabel(row.attribute.type)
-                                            }}</span>
-                                            <div class="site-editor__acoes site-editor__acoes--linha">
+                                            <div class="site-editor__posicionamento-item-topo">
+                                                <span
+                                                    class="site-editor__alca"
+                                                    aria-hidden="true"
+                                                    title="Arrastar para reordenar"
+                                                >
+                                                    <KamiIcon
+                                                        name="grip"
+                                                        :size="16"
+                                                    />
+                                                </span>
+                                                <span class="site-editor__posicionamento-nome">{{
+                                                    row.attribute.name || 'SEM NOME'
+                                                }}</span>
+                                                <span class="site-editor__posicionamento-tipo">{{
+                                                    attributeTypeLabel(row.attribute.type)
+                                                }}</span>
+                                            </div>
+                                            <div class="site-editor__posicionamento-item-acoes">
                                                 <KamiButton
                                                     size="sm"
                                                     :disabled="row.index === entry.attributes[0]?.index"
                                                     :aria-label="`Mover ${row.attribute.name} para cima`"
                                                     @click="moveAttribute(entry.section, row.index, -1)"
                                                 >
-                                                    ↑
+                                                    <KamiIcon
+                                                        name="arrow-up"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                                 <KamiButton
                                                     size="sm"
@@ -3659,7 +3810,10 @@ export default defineNuxtComponent({
                                                     :aria-label="`Mover ${row.attribute.name} para baixo`"
                                                     @click="moveAttribute(entry.section, row.index, 1)"
                                                 >
-                                                    ↓
+                                                    <KamiIcon
+                                                        name="arrow-down"
+                                                        :size="16"
+                                                    />
                                                 </KamiButton>
                                                 <select
                                                     class="kami-input site-editor__posicionamento-destino"
@@ -3667,7 +3821,7 @@ export default defineNuxtComponent({
                                                     :aria-label="`Mover ${row.attribute.name} para outra seção`"
                                                     @change="moveToSection(entry.index, row.index, $event)"
                                                 >
-                                                    <option value="">→ SEÇÃO</option>
+                                                    <option value="">MOVER PARA…</option>
                                                     <template
                                                         v-for="(target, targetIndex) in sections"
                                                         :key="targetIndex"
@@ -3695,7 +3849,11 @@ export default defineNuxtComponent({
                                         :disabled="!canAddAttribute(entry.section)"
                                         @click="addAttribute(entry.section)"
                                     >
-                                        <span class="site-editor__sinal">+</span> ATRIBUTO
+                                        <KamiIcon
+                                            name="plus"
+                                            :size="16"
+                                        />
+                                        ATRIBUTO
                                     </KamiButton>
                                 </section>
                             </div>
@@ -3714,6 +3872,13 @@ export default defineNuxtComponent({
                                     </p>
                                 </div>
                                 <span class="site-editor__estrutura-total">12 COLUNAS</span>
+                                <KamiButton
+                                    class="site-editor__estrutura-ajustes"
+                                    size="sm"
+                                    @click="scrollToInspector"
+                                >
+                                    AJUSTES DA SEÇÃO
+                                </KamiButton>
                             </div>
 
                             <div class="site-editor__estrutura-corpo">
@@ -3740,6 +3905,7 @@ export default defineNuxtComponent({
                                 </div>
 
                                 <aside
+                                    ref="inspectorPanel"
                                     class="site-editor__estrutura-inspetor"
                                     aria-label="Ajustes da seção selecionada"
                                 >
@@ -4060,7 +4226,10 @@ export default defineNuxtComponent({
                                                 aria-label="Mover seção para cima"
                                                 @click="moveSection(activeSectionIndex, -1)"
                                             >
-                                                ↑
+                                                <KamiIcon
+                                                    name="arrow-up"
+                                                    :size="16"
+                                                />
                                             </KamiButton>
                                             <KamiButton
                                                 size="sm"
@@ -4068,7 +4237,10 @@ export default defineNuxtComponent({
                                                 aria-label="Mover seção para baixo"
                                                 @click="moveSection(activeSectionIndex, 1)"
                                             >
-                                                ↓
+                                                <KamiIcon
+                                                    name="arrow-down"
+                                                    :size="16"
+                                                />
                                             </KamiButton>
                                         </div>
                                     </section>
@@ -4084,10 +4256,13 @@ export default defineNuxtComponent({
                     ></div>
                     <div
                         v-if="previewOpen"
+                        ref="previewDialog"
                         class="site-editor__preview"
                         role="dialog"
                         aria-modal="true"
                         aria-label="Prévia da ficha"
+                        tabindex="-1"
+                        @keydown="handleDialogKeydown('preview', $event)"
                     >
                         <div class="site-editor__preview-topo">
                             <p class="site-eyebrow">PRÉVIA · MODO DOCUMENTO</p>
@@ -4132,6 +4307,7 @@ export default defineNuxtComponent({
                         aria-modal="true"
                         aria-labelledby="config-ficha-titulo"
                         tabindex="-1"
+                        @keydown="handleDialogKeydown('settings', $event)"
                     >
                         <div class="site-editor__config-topo">
                             <div>
@@ -4213,6 +4389,7 @@ export default defineNuxtComponent({
                         aria-modal="true"
                         aria-labelledby="bar-config-titulo"
                         tabindex="-1"
+                        @keydown="handleDialogKeydown('bar', $event)"
                     >
                         <div class="site-editor__config-topo">
                             <div>
@@ -4385,6 +4562,58 @@ export default defineNuxtComponent({
                             </p>
                         </div>
                     </section>
+                </div>
+
+                <div
+                    v-if="!sheet.isLive"
+                    class="site-editor__acoes-fixas"
+                    role="group"
+                    aria-label="Ações da ficha"
+                >
+                    <KamiButton
+                        variant="primary"
+                        size="sm"
+                        :disabled="!canSave"
+                        @click="handleSave"
+                    >
+                        {{ isSaving ? 'SALVANDO...' : 'SALVAR' }}
+                    </KamiButton>
+                    <KamiButton
+                        v-if="hasChanges"
+                        size="sm"
+                        aria-label="Descartar alterações"
+                        title="Descartar alterações"
+                        @click="handleDiscard"
+                    >
+                        <KamiIcon
+                            name="rotate-ccw"
+                            :size="20"
+                        />
+                    </KamiButton>
+                    <KamiButton
+                        v-if="mode !== 'estrutura'"
+                        size="sm"
+                        :aria-pressed="previewOpen"
+                        aria-label="Prévia da ficha"
+                        title="Prévia da ficha"
+                        @click="togglePreview"
+                    >
+                        <KamiIcon
+                            name="eye"
+                            :size="20"
+                        />
+                    </KamiButton>
+                    <KamiButton
+                        size="sm"
+                        aria-label="Configurações da ficha"
+                        title="Configurações da ficha"
+                        @click="openSettings"
+                    >
+                        <KamiIcon
+                            name="settings"
+                            :size="20"
+                        />
+                    </KamiButton>
                 </div>
             </template>
         </template>

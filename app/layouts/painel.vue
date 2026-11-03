@@ -1,18 +1,21 @@
 <script lang="ts">
 import { defineComponent } from 'vue';
 import type { FooterLink } from '~/components/Kami/Footer.vue';
+import type { KamiIconName } from '~/components/Kami/Icon.vue';
 
 interface PanelNavLink {
     label: string;
+    shortLabel: string;
     href: string;
+    icon: KamiIconName;
 }
 
 const panelLinks: PanelNavLink[] = [
-    { label: 'VISÃO GERAL', href: '/painel' },
-    { label: 'FICHAS', href: '/fichas' },
-    { label: 'AO VIVO', href: '/ao-vivo' },
-    { label: 'MACROS', href: '/macros' },
-    { label: 'CONFIGURAÇÕES', href: '/configuracoes' }
+    { label: 'VISÃO GERAL', shortLabel: 'PAINEL', href: '/painel', icon: 'dashboard' },
+    { label: 'FICHAS', shortLabel: 'FICHAS', href: '/fichas', icon: 'file' },
+    { label: 'AO VIVO', shortLabel: 'AO VIVO', href: '/ao-vivo', icon: 'radio' },
+    { label: 'MACROS', shortLabel: 'MACROS', href: '/macros', icon: 'terminal' },
+    { label: 'CONFIGURAÇÕES', shortLabel: 'AJUSTES', href: '/configuracoes', icon: 'settings' }
 ];
 
 export default defineComponent({
@@ -71,6 +74,7 @@ export default defineComponent({
 
         <nav
             class="site-painel-nav"
+            :class="{ 'site-painel-nav--editor': isEditor }"
             aria-label="Navegação do painel"
         >
             <div
@@ -84,7 +88,12 @@ export default defineComponent({
                     class="site-painel-nav__link"
                     active-class="site-painel-nav__link--ativo"
                 >
-                    {{ link.label }}
+                    <KamiIcon
+                        :name="link.icon"
+                        :size="20"
+                    />
+                    <span class="site-painel-nav__label">{{ link.label }}</span>
+                    <span class="site-painel-nav__short">{{ link.shortLabel }}</span>
                 </NuxtLink>
             </div>
         </nav>

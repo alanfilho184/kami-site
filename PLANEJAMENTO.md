@@ -273,6 +273,7 @@ posterior; a D2.1 já permite que novos usuários criem conta no site.
 | D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev  |
 | D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev  |
 | D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev  |
+| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev  |
 | D4      | Fichas públicas                  | —               | Depois da 6.2.0   |
 | D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0   |
 | D6      | Tutoriais                        | —               | Fora desta versão |
@@ -635,6 +636,35 @@ Resultado em 03/11/2026:
 - `SHEET_GALLERY_COLUMNS_MAX`, `defaultAttributeSpanFor` e `clampGalleryColumns` centralizam a
   galeria em `shared/utils/sheet-layout.ts`;
 - 137 testes unitários e 48 E2E no build de produção (44 anteriores + 4 novos, 1 skip).
+
+### D3.3 - Mobile do editor, ícones e navegação
+
+**Objetivo:** fechar a experiência mobile do editor e padronizar ícones e navegação antes da D4, sem abrir recursos novos.
+
+**Estado:** concluída no desenvolvimento em 03/11/2026, dentro da `6.2.0`.
+
+Escopo:
+
+- barra inferior fixa no editor em telas de até `900px`, com SALVAR, descartar, prévia e configurações; as ações duplicadas do topo somem no mobile e o conteúdo ganha respiro para a barra;
+- alvos de toque de 40–44px nos modos, seções, ações de atributo e navegação;
+- `POSICIONAMENTO` compacto: cada atributo em duas faixas (nome/tipo e ações/seletor), sem arraste nativo no toque e sem caixas aninhadas;
+- `ESTRUTURA`: canvas em largura total e atalho “AJUSTES DA SEÇÃO” que leva ao inspetor empilhado;
+- ícones internos em SVG 24x24 (`KamiIcon`), com `currentColor` e `aria-hidden`, substituindo os caracteres ASCII do editor e do `KamiSheetView`; ações destrutivas usam lixeira e fechar usa `x`;
+- navbar do painel redesenhada com ícone + label e estado ativo em pill no desktop; no mobile vira uma barra de cinco abas curtas e some dentro do editor, onde a barra inferior já concentra as ações;
+- diálogos (CONFIGURAÇÕES, AJUSTES DA BARRA, PRÉVIA e lightbox) travam o scroll do documento, prendem o Tab/Shift+Tab e devolvem o foco ao gatilho; o contador de locks permite lightbox sobre a prévia.
+
+Aceite:
+
+- em 360px não há rolagem horizontal em nenhum modo;
+- a barra inferior salva a ficha e não duplica as ações do topo;
+- o lightbox e os modais mantêm o foco dentro e o body sem scroll enquanto abertos;
+- a navbar mobile usa os rótulos curtos e desaparece no editor;
+- os botões de ícone continuam com nomes acessíveis.
+
+Resultado em 03/11/2026:
+
+- 6 E2E novos em `tests/e2e/sheets-mobile.spec.ts` (barra inferior, posicionamento, foco/scroll dos modais, lightbox e navbar);
+- 137 testes unitários e 53 E2E no build de produção (47 anteriores + 6 novos, 1 skip).
 
 ### D4 - Fichas públicas
 

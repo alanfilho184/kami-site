@@ -21,6 +21,14 @@ import {
     SHEET_LAYOUT_ROWS_MAX
 } from '~~/shared/utils/sheet-layout';
 import { SHEET_DESCRIPTION_MAX_LENGTH } from '~~/shared/constants/sheet';
+import {
+    focusDialog,
+    lockDialogScroll,
+    rememberDialogFocus,
+    restoreDialogFocus,
+    trapDialogTab,
+    unlockDialogScroll
+} from '~/utils/dialog';
 
 type ViewMode = 'documento' | 'secoes';
 
@@ -169,6 +177,7 @@ export default defineComponent({
     },
     beforeUnmount() {
         window.removeEventListener('keydown', this.handleLightboxKeydown);
+        this.closeLightbox();
         this.numberObserver?.disconnect();
         this.numberObserver = null;
 
@@ -359,14 +368,26 @@ export default defineComponent({
             }
         },
         openLightbox(images: SheetAttribute[], index: number): void {
+            const wasOpen = this.lightboxImages.length > 0;
+
             this.lightboxImages = images;
             this.lightboxIndex = index;
 
+            if (!wasOpen) {
+                rememberDialogFocus();
+                lockDialogScroll();
+            }
+
             void this.$nextTick(() => {
-                (this.$refs.lightboxDialog as HTMLElement | undefined)?.focus();
+                focusDialog((this.$refs.lightboxDialog as HTMLElement | undefined) ?? null);
             });
         },
         closeLightbox(): void {
+            if (this.lightboxImages.length > 0) {
+                unlockDialogScroll();
+                restoreDialogFocus();
+            }
+
             this.lightboxImages = [];
             this.lightboxIndex = 0;
         },
@@ -389,6 +410,16 @@ export default defineComponent({
         },
         handleLightboxKeydown(event: KeyboardEvent): void {
             if (this.lightboxImages.length === 0) {
+                return;
+            }
+
+            if (event.key === 'Tab') {
+                const dialog = this.$refs.lightboxDialog as HTMLElement | undefined;
+
+                if (dialog) {
+                    trapDialogTab(event, dialog);
+                }
+
                 return;
             }
 
@@ -1259,7 +1290,10 @@ export default defineComponent({
                                                 class="site-sheetview__lista-alca"
                                                 aria-hidden="true"
                                             >
-                                                ⋮⋮
+                                                <KamiIcon
+                                                    name="grip"
+                                                    :size="14"
+                                                />
                                             </span>
                                             <input
                                                 v-if="isEditingAttribute(sectionIndex(section), attributeIndex)"
@@ -1301,7 +1335,10 @@ export default defineComponent({
                                                         )
                                                     "
                                                 >
-                                                    −
+                                                    <KamiIcon
+                                                        name="minus"
+                                                        :size="16"
+                                                    />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1316,7 +1353,10 @@ export default defineComponent({
                                                         )
                                                     "
                                                 >
-                                                    +
+                                                    <KamiIcon
+                                                        name="plus"
+                                                        :size="16"
+                                                    />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1332,7 +1372,10 @@ export default defineComponent({
                                                         )
                                                     "
                                                 >
-                                                    ↑
+                                                    <KamiIcon
+                                                        name="arrow-up"
+                                                        :size="16"
+                                                    />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1348,7 +1391,10 @@ export default defineComponent({
                                                         )
                                                     "
                                                 >
-                                                    ↓
+                                                    <KamiIcon
+                                                        name="arrow-down"
+                                                        :size="16"
+                                                    />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1358,7 +1404,10 @@ export default defineComponent({
                                                         removeListItem(sectionIndex(section), attributeIndex, itemIndex)
                                                     "
                                                 >
-                                                    ×
+                                                    <KamiIcon
+                                                        name="trash"
+                                                        :size="16"
+                                                    />
                                                 </button>
                                             </span>
                                         </li>
@@ -1396,7 +1445,10 @@ export default defineComponent({
                                                 :aria-label="`Diminuir ${attribute.name}`"
                                                 @click.stop="adjustBar(sectionIndex(section), attributeIndex, -1)"
                                             >
-                                                −
+                                                <KamiIcon
+                                                    name="minus"
+                                                    :size="14"
+                                                />
                                             </button>
                                             <button
                                                 type="button"
@@ -1405,7 +1457,10 @@ export default defineComponent({
                                                 :aria-label="`Aumentar ${attribute.name}`"
                                                 @click.stop="adjustBar(sectionIndex(section), attributeIndex, 1)"
                                             >
-                                                +
+                                                <KamiIcon
+                                                    name="plus"
+                                                    :size="14"
+                                                />
                                             </button>
                                         </span>
                                     </div>
@@ -1463,7 +1518,10 @@ export default defineComponent({
                         aria-label="Imagem anterior"
                         @click="previousLightboxImage"
                     >
-                        ‹
+                        <KamiIcon
+                            name="chevron-left"
+                            :size="24"
+                        />
                     </button>
 
                     <figure class="site-sheetview__lightbox-figura">
@@ -1473,7 +1531,10 @@ export default defineComponent({
                             aria-label="Fechar imagem ampliada"
                             @click="closeLightbox"
                         >
-                            ×
+                            <KamiIcon
+                                name="x"
+                                :size="18"
+                            />
                         </button>
                         <img
                             v-if="!isImageBroken(String(currentLightboxImage()?.value))"
@@ -1503,7 +1564,10 @@ export default defineComponent({
                         aria-label="Próxima imagem"
                         @click="nextLightboxImage"
                     >
-                        ›
+                        <KamiIcon
+                            name="chevron-right"
+                            :size="24"
+                        />
                     </button>
                 </div>
             </div>
