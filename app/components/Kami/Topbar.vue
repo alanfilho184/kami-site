@@ -6,6 +6,8 @@ export interface TopbarLink {
     href: string;
 }
 
+type TopbarCtaVariant = 'default' | 'primary' | 'solid' | 'danger';
+
 export default defineComponent({
     name: 'KamiTopbar',
     props: {
@@ -25,9 +27,13 @@ export default defineComponent({
             type: String,
             default: 'SUPORTE'
         },
-        botInvite: {
+        ctaTo: {
             type: String,
-            default: ''
+            default: '/entrar'
+        },
+        ctaVariant: {
+            type: String as PropType<TopbarCtaVariant>,
+            default: 'primary'
         },
         discordUrl: {
             type: String,
@@ -88,11 +94,9 @@ export default defineComponent({
                     {{ support }}
                 </KamiButton>
                 <KamiButton
-                    v-if="botInvite"
-                    variant="primary"
+                    :variant="ctaVariant"
                     size="sm"
-                    :href="botInvite"
-                    external
+                    :to="ctaTo"
                 >
                     <span class="site-topbar__cta-longo">{{ cta }}</span>
                     <span class="site-topbar__cta-curto">{{ shortCta }}</span>

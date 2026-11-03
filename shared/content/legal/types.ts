@@ -13,4 +13,4 @@ export interface LegalDocument {
     sections: LegalSection[];
 }
 
-export const legalReviewPending = false;
+export const legalReviewPending = true;

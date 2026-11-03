@@ -73,6 +73,33 @@ export default defineNuxtConfig({
     },
     routeRules: {
         '/api/**': { headers: { 'cache-control': 'no-store' } },
+        '/entrar': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/cadastrar': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/painel': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/fichas': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/fichas/**': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/ao-vivo': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/macros': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/configuracoes': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
+        '/sair': {
+            headers: { 'cache-control': 'private, no-store', 'x-robots-tag': 'noindex, nofollow' }
+        },
         '/fonts/**': { headers: { 'cache-control': 'public, max-age=31536000, immutable' } },
         '/marca/**': { headers: { 'cache-control': 'public, max-age=604800' } }
     },

@@ -47,6 +47,12 @@ export default defineEventHandler(event => {
             return;
         }
 
+        // A checagem de sessão sem cookie é uma operação normal do layout público.
+        if (status === 401 && path === '/api/auth/session') {
+            logger.debug('Sessão ausente na verificação de estado', context);
+            return;
+        }
+
         if (status >= 400) {
             logger.warn('Requisição recusada', context);
             return;

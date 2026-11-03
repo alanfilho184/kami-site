@@ -8,6 +8,17 @@ export default defineConfig({
     forbidOnly: Boolean(process.env.CI),
     retries: process.env.CI ? 2 : 0,
     reporter: 'list',
+    projects: [
+        {
+            name: 'setup',
+            testMatch: /.*\.setup\.ts/
+        },
+        {
+            name: 'e2e',
+            testIgnore: /.*\.setup\.ts/,
+            dependencies: ['setup']
+        }
+    ],
     use: {
         baseURL
     },

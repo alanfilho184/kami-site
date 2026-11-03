@@ -59,8 +59,8 @@ export const landing = {
     },
     topbar: {
         subtitle: 'FICHAS DE RPG PERSONALIZÁVEIS',
-        cta: 'ADICIONAR O KAMI',
-        shortCta: 'ADICIONAR',
+        cta: 'ENTRAR',
+        shortCta: 'ENTRAR',
         support: 'SUPORTE',
         links: [
             { label: 'RECURSOS', href: '/#recursos' },
@@ -75,15 +75,15 @@ export const landing = {
         description:
             'O Kami organiza as fichas do seu personagem, rola os dados e mantém tudo sincronizado - durante e entre as sessões.',
         note: 'GRATUITO · PT-BR E EN-US',
-        primaryCta: 'ADICIONAR O KAMI',
-        secondaryCta: 'VER UMA FICHA'
+        primaryCta: 'ENTRAR',
+        secondaryCta: 'ADICIONAR O KAMI'
     },
     stats: {
         label: 'O KAMI EM NÚMEROS',
         meta: 'DADOS DO KAMI',
         items: [
             { key: 'users', label: 'JOGADORES', sub: 'cadastrados no Kami' },
-            { key: 'activeUsers', label: 'ATIVOS', sub: 'nos últimos 30 dias' },
+            { key: 'activeUsers', label: 'USUÁRIOS ATIVOS', sub: 'nos últimos 30 dias' },
             { key: 'sheets', label: 'FICHAS CRIADAS', sub: 'atualmente no Kami' },
             { key: 'interactions', label: 'INTERAÇÕES', sub: 'executadas desde o início do Kami' }
         ] as StatItem[],
@@ -209,7 +209,7 @@ export const landing = {
             },
             {
                 question: 'Preciso criar conta?',
-                answer: 'Não. Hoje o Kami funciona pelo Discord; o login no site chega na próxima etapa e não é necessário para jogar.'
+                answer: 'Para jogar pelo Discord, não. Para usar a área do site, contas com e-mail e senha já podem entrar; contas criadas pelo Discord recebem o primeiro acesso em uma próxima etapa.'
             },
             {
                 question: 'Serve para qualquer sistema de RPG?',

@@ -173,11 +173,11 @@
 /* --- 1.3 Linhas e bordas ------------------------------------------------ */
 :root {
     /* Borda de moldura: cards, paineis, tabelas, inputs. */
-    --kami-line: #132649;
+    --kami-line: #12326d;
     /* Divisoria interna e grade: mais escura, some de proposito. */
-    --kami-line-soft: #002059;
+    --kami-line-soft: #00276b;
     /* Borda em evidencia: hover, foco, item selecionado. */
-    --kami-line-strong: #1c3f7a;
+    --kami-line-strong: #1f478b;
     /* Grade de fundo da pagina. Use transparent para desligar. */
     --kami-grid: rgba(230, 232, 238, 0.035);
     /* Larguras de borda. */

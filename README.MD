@@ -1,10 +1,11 @@
 # Kami - site
 
-Site público do Kami: landing, estatísticas, ficha de amostra e documentos legais.
-O projeto está na **D1** concluída; login, editor de fichas e fichas públicas ainda
-estão nas próximas entregas.
+Site público do Kami: landing, estatísticas, ficha de amostra, documentos legais,
+cadastro, painel do jogador e editor de fichas. O projeto está com **D2, D2.1, D2.2 e
+D3** concluídas no desenvolvimento; a próxima entrega é a D4 (fichas públicas) e o
+release `6.2.0` aguarda migração no `kami_prod`, revisão jurídica e promoção.
 
-**Versão atual:** `6.0.0`.
+**Versão de desenvolvimento:** `6.2.0` (produção: `6.0.0`).
 
 - Nuxt 4 com SSR e Vue 3 em Options API;
 - TypeScript estrito e Prettier;
@@ -14,7 +15,7 @@ estão nas próximas entregas.
 - Vitest para unidade e Playwright para fumaça;
 - deploy em duas VPS com PM2, Nginx e Cloudflare.
 
-O plano completo, incluindo as entregas D1-D5, está em [PLANEJAMENTO.md](PLANEJAMENTO.md).
+O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJAMENTO.md).
 
 ## O que existe hoje
 
@@ -23,6 +24,16 @@ O plano completo, incluindo as entregas D1-D5, está em [PLANEJAMENTO.md](PLANEJ
 - Ficha de amostra em HTML com os cinco tipos de atributo.
 - Roadmap de macros e campanhas, sem números.
 - Jurídico em `/termos`, `/privacidade`, `/terms` e `/privacy`.
+- Cadastro em `/cadastrar` com username, e-mail, senha, aceite dos termos e login automático.
+- Login em `/entrar`, saída em `/sair` e sessão opaca em `site_sessions`, com cookie `kami_sessao` HttpOnly e proteção CSRF por origem.
+- Painel em `/painel` com conta, contagens reais e últimas fichas atualizadas.
+- `/fichas` editável: criar, renomear, duplicar e excluir, com badges de pública, ao vivo e legada.
+- `/fichas/:id` com seções e os cinco tipos de atributo, salvamento explícito, Ctrl+S, aviso de saída e prévia.
+- Fichas `legacy` normalizam na leitura e gravam o formato novo no primeiro save.
+- Concorrência por `last_use`: duas abas não sobrescrevem uma à outra; o conflito oferece recarregar.
+- `/ao-vivo` para as fichas vinculadas ao Discord (`irt_sheets`), somente leitura até a D5.
+- `/macros` somente leitura, com aviso de que o editor está em desenvolvimento.
+- `/configuracoes` com username, status do Discord e troca de senha mediante a senha atual.
 - Página de ficha pública em desenvolvimento em `/ficha` e `/ficha/:userId/:sheetName`.
 - Redirects antigos, `/comandos` com `410`, `robots.txt` e `sitemap.xml`.
 - Open Graph com imagem gerada em `public/og/kami-site.png`.
@@ -59,7 +70,7 @@ estatísticas como indisponíveis; `/api/health` continua respondendo `200`.
 | `NUXT_PUBLIC_DISCORD_INVITE` | público  | convite do servidor                                           |
 | `NUXT_PUBLIC_BOT_INVITE`     | público  | convite de instalação do bot                                  |
 | `DATABASE_URL`               | servidor | conexão com o Postgres (role `kami_app`)                      |
-| `SESSION_SECRET`             | servidor | 32+ bytes; assinatura de sessões e cookies                    |
+| `SESSION_SECRET`             | servidor | 32+ bytes; reservado para cookies assinados (D4)              |
 | `LOG_LEVEL`                  | servidor | `debug`, `info`, `warn` ou `error`                            |
 | `DB_POOL_MAX`                | servidor | máximo de clientes no pool                                    |
 | `DB_CONNECTION_TIMEOUT_MS`   | servidor | timeout para obter um cliente                                 |
@@ -70,19 +81,24 @@ Nunca leia `process.env` fora de `server/utils/config.ts` e nunca versione o
 
 ## Scripts
 
-| Comando                | O que faz                                |
-| ---------------------- | ---------------------------------------- |
-| `npm run dev`          | servidor de desenvolvimento              |
-| `npm run build`        | build de produção em `.output`           |
-| `npm run preview`      | pré-visualização do build                |
-| `npm start`            | sobe o build (carrega `.env` se existir) |
-| `npm run typecheck`    | `nuxt typecheck` + `vue-tsc`             |
-| `npm run test`         | testes unitários (Vitest)                |
-| `npm run test:watch`   | Vitest em modo watch                     |
-| `npm run test:e2e`     | fumaça com Playwright                    |
-| `npm run format`       | Prettier em todo o projeto               |
-| `npm run format:check` | verifica a formatação                    |
-| `npm run check`        | formato + tipos + testes + build         |
+| Comando                     | O que faz                                  |
+| --------------------------- | ------------------------------------------ |
+| `npm run dev`               | servidor de desenvolvimento                |
+| `npm run build`             | build de produção em `.output`             |
+| `npm run preview`           | pré-visualização do build                  |
+| `npm start`                 | sobe o build (carrega `.env` se existir)   |
+| `npm run typecheck`         | `nuxt typecheck` + `vue-tsc`               |
+| `npm run test`              | testes unitários (Vitest)                  |
+| `npm run test:watch`        | Vitest em modo watch                       |
+| `npm run test:e2e`          | fumaça com Playwright                      |
+| `npm run db:validate`       | valida o schema Prisma                     |
+| `npm run db:status`         | compara o histórico com o banco            |
+| `npm run db:diff`           | mostra o SQL pendente entre banco e schema |
+| `npm run db:migrate`        | aplica as migrations pendentes             |
+| `npm run db:migrate:create` | cria uma migration em desenvolvimento      |
+| `npm run format`            | Prettier em todo o projeto                 |
+| `npm run format:check`      | verifica a formatação                      |
+| `npm run check`             | formato + schema + tipos + testes + build  |
 
 O E2E sobe o servidor de desenvolvimento e precisa de um navegador do Playwright:
 
@@ -91,12 +107,22 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+Os testes de login bem-sucedido usam uma conta de teste local. Defina
+`E2E_AUTH_EMAIL` e `E2E_AUTH_PASSWORD` antes de rodar; sem elas, esses testes são
+ignorados. O teste de cadastro bem-sucedido só roda com `E2E_REGISTER=1` e cria
+uma conta descartável com username e e-mail únicos. Nunca use uma conta real de produção.
+
+O estado atual tem 137 testes unitários e 48 E2E. O rate limit de login é em memória por
+processo; várias execuções seguidas do E2E no mesmo servidor podem responder `429`.
+Reinicie o servidor para zerar o contador.
+
 ## Estrutura
 
 ```txt
 app/                 aplicação Nuxt (app.vue, layout, páginas e componentes)
 server/              Nitro (api, middleware, plugins, utils e tipos)
 shared/              contratos e funções puras usadas nos dois lados
+prisma/              schema e migrations do banco compartilhado
 public/              fontes, marca, imagens e arquivos estáticos
 scripts/             utilitários de desenvolvimento, como o gerador do OG
 tests/               unit (Vitest) e e2e (Playwright)
@@ -104,21 +130,53 @@ deploy/              configuração de Nginx
 docs/                documentação de deploy
 ```
 
-A camada de dados segue o guia do backend: `api` orquestra, `services` valida,
-`controllers` executam SQL e `utils` concentram pool, config e logger. O site não
-cria tabelas nem altera o schema - isso é responsabilidade do bot.
+A camada de dados segue o guia do projeto: `api` orquestra, `services` valida e
+`utils` concentram pool, config e logger. O runtime usa `pg` +
+`sql-template-strings`; o schema e as migrations ficam em `prisma/`.
+
+## Banco e migrations
+
+O site é dono do schema e das migrations a partir da D2. O Prisma entra apenas
+como ferramenta de schema; o Prisma Client não é usado no runtime.
+
+| Variável                     | Uso                                                   |
+| ---------------------------- | ----------------------------------------------------- |
+| `DATABASE_URL`               | runtime, role `kami_app`, sem DDL                     |
+| `MIGRATION_DATABASE_URL`     | CLI do Prisma, role com DDL, só no passo de migration |
+| `PRISMA_SHADOW_DATABASE_URL` | banco de sombra local para criar migrations           |
+
+```powershell
+npm run db:validate
+npm run db:status
+npm run db:diff
+npm run db:migrate
+```
+
+O histórico existente foi copiado do bot preservando nomes e checksums. Antes da
+primeira migration nova, `db:diff` deve sair vazio. Se houver drift, reconcilie
+antes de criar qualquer migration. O guia completo está em [prisma/README.md](prisma/README.md).
 
 ## Rotas principais
 
-| Rota                                        | Comportamento                             |
-| ------------------------------------------- | ----------------------------------------- |
-| `/`                                         | Landing                                   |
-| `/termos`, `/privacidade`                   | Jurídico PT-BR                            |
-| `/terms`, `/privacy`                        | Jurídico EN                               |
-| `/ficha`, `/ficha/:userId/:sheetName`       | Aviso de ficha pública em desenvolvimento |
-| `/comandos`                                 | `410 Gone`                                |
-| `/convite`, `/suporte`                      | `302` para o Discord                      |
-| `/tutoriais`, `/macros`, `/macro/:id/:nome` | `302` para a landing ou seção de recursos |
+| Rota                                       | Comportamento                             |
+| ------------------------------------------ | ----------------------------------------- |
+| `/`                                        | Landing                                   |
+| `/termos`, `/privacidade`                  | Jurídico PT-BR                            |
+| `/terms`, `/privacy`                       | Jurídico EN                               |
+| `/cadastrar`                               | Cadastro com username, e-mail e senha     |
+| `/entrar`                                  | Login com e-mail e senha                  |
+| `/painel`                                  | Visão geral autenticada com `noindex`     |
+| `/fichas`                                  | Lista editável de fichas                  |
+| `/fichas/:id`                              | Editor de ficha com seções e atributos    |
+| `/ao-vivo`                                 | Fichas vinculadas ao Discord (IRT)        |
+| `/macros`                                  | Macros somente leitura                    |
+| `/configuracoes`                           | Conta, username e senha                   |
+| `/sair`                                    | Confirmação de logout                     |
+| `/login`, `/logout`, `/dashboard`, `/sync` | `302` para `/entrar`, `/sair` e `/painel` |
+| `/ficha`, `/ficha/:userId/:sheetName`      | Aviso de ficha pública em desenvolvimento |
+| `/comandos`                                | `410 Gone`                                |
+| `/convite`, `/suporte`                     | `302` para o Discord                      |
+| `/tutoriais`, `/macro/:id/:nome`           | `302` para a landing ou seção de recursos |
 
 ## Imagens e marca
 

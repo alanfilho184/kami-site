@@ -118,17 +118,17 @@ export default defineNuxtComponent({
 
                         <div class="site-hero__acoes">
                             <KamiButton
-                                v-if="botInvite"
                                 variant="primary"
                                 size="lg"
-                                :href="botInvite"
-                                external
+                                to="/entrar"
                             >
                                 {{ content.hero.primaryCta }}
                             </KamiButton>
                             <KamiButton
+                                v-if="botInvite"
                                 size="lg"
-                                href="#ficha"
+                                :href="botInvite"
+                                external
                             >
                                 {{ content.hero.secondaryCta }}
                             </KamiButton>

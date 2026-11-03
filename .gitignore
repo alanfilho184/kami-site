@@ -11,6 +11,7 @@ coverage/
 playwright-report/
 test-results/
 .playwright-mcp/
+tests/e2e/.auth/
 design/source/
 .DS_Store
 Thumbs.db

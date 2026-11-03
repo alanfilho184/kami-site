@@ -1,6 +1,6 @@
 {
     "name": "kami-site",
-    "version": "6.0.0",
+    "version": "6.2.0",
     "private": true,
     "type": "module",
     "description": "Site e plataforma web do Kami.",
@@ -20,9 +20,16 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "test:e2e": "playwright test",
-        "check": "npm run format:check && npm run typecheck && npm run test && npm run build"
+        "db:validate": "prisma validate",
+        "db:format": "prisma format",
+        "db:status": "prisma migrate status",
+        "db:diff": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --script",
+        "db:migrate": "prisma migrate deploy",
+        "db:migrate:create": "prisma migrate dev --create-only",
+        "check": "npm run format:check && npm run db:validate && npm run typecheck && npm run test && npm run build"
     },
     "dependencies": {
+        "bcryptjs": "^3.0.3",
         "nuxt": "^4.6.3",
         "pg": "^8.23.1",
         "sql-template-strings": "^2.2.2",
@@ -35,6 +42,7 @@
         "@types/node": "^24.19.2",
         "@types/pg": "^8.23.1",
         "prettier": "^3.9.10",
+        "prisma": "^7.10.1",
         "typescript": "^5.9.3",
         "vitest": "^5.0.5",
         "vue-tsc": "^3.3.13"

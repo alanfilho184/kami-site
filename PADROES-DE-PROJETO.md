@@ -11,6 +11,7 @@
 | Aplicação | Nuxt 4 com SSR, Vue 3 em Options API e TypeScript estrito                |
 | Runtime   | Node.js 24.12 ou superior                                                |
 | Dados     | PostgreSQL 18 compartilhado com o bot, via `pg` + `sql-template-strings` |
+| Schema    | Prisma CLI 7 para schema e migrations; sem Prisma Client no runtime      |
 | Validação | Zod para ambiente e entradas                                             |
 | Estilo    | CSS puro: `kami.css` (design system) + `site.css` (site)                 |
 | Testes    | Vitest para unidade e Playwright para E2E                                |
@@ -21,30 +22,44 @@
 ```txt
 app/
 ├── app.vue, error.vue
-├── layouts/default.vue
-├── pages/                 index, termos, privacidade, terms, privacy
+├── layouts/               default.vue, painel.vue
+├── pages/                 index, entrar, cadastrar, painel, sair, termos,
+│                          privacidade, terms, privacy, fichas/index,
+│                          fichas/[id], ao-vivo, macros, configuracoes,
+│                          ficha/[[...slug]]
 ├── components/Kami/       Button, Chip, EmptyState, Footer, LegalDocument,
 │                          Loading, Panel, Questions, SampleSheet, Section,
-│                          Stat, TablePreview, Tag, Topbar
+│                          SheetView, Stat, TablePreview, Tag, Topbar
 ├── assets/css/            kami.css, site.css
 └── types/
 
 server/
-├── api/                   estatisticas, health, ready
-├── routes/                comandos, convite, macros, suporte, robots.txt,
-│                          sitemap.xml, macro/[userId]/[macroName],
-│                          tutoriais/index, tutoriais/[slug]
-├── middleware/            observability, security
+├── api/                   estatisticas, health, ready, painel, fichas (index,
+│                          [id], [id]/duplicar), ao-vivo, macros, conta,
+│                          conta/senha, auth/login, auth/logout, auth/register,
+│                          auth/session
+├── routes/                comandos, convite, suporte, robots.txt, sitemap.xml,
+│                          login, logout, dashboard, sync,
+│                          macro/[userId]/[macroName], tutoriais/index,
+│                          tutoriais/[slug]
+├── schemas/               auth.ts, account.ts, sheet.ts
+├── middleware/            observability, security, session
 ├── plugins/               initialization, lifecycle
-├── services/              statistics.service
-├── utils/                 config, database, logger
+├── services/              statistics.service, auth.service, registration.service,
+│                          session.service, panel.service, account.service,
+│                          sheet.service, sheet-errors
+├── utils/                 config, database, logger, rate-limit, auth-context,
+│                          request-metadata, request-origin, session-cookie
 └── types/
+
+prisma/                    schema.prisma e migrations/
+prisma.config.ts           URL de migration, fora do runtime
 
 shared/
 ├── content/landing/       pt-br.ts
 ├── content/legal/         pt-br.ts, en-us.ts, types.ts
-├── types/                 statistics.ts
-└── utils/                 formatting.ts
+├── types/                 auth.ts, panel.ts, sheet.ts, statistics.ts
+└── utils/                 formatting.ts, http-error.ts
 
 public/                    fontes, marca, og e exemplos
 tests/                     unit (Vitest) e e2e (Playwright)
@@ -71,6 +86,7 @@ server/utils/logger.ts     log JSON com contexto mascarado
 - **`server/services/`** valida entradas com Zod quando existem, aplica regra, mantém cache e executa SQL de leitura. Retorna objeto tipado, nunca resposta HTTP.
 - **`server/utils/`** é infraestrutura: configuração, pool, logger. Não conhece regra de negócio.
 - **`server/middleware/` e `server/plugins/`** tratam segurança, observabilidade, boot e shutdown.
+- **`prisma/`** guarda o schema e as migrations. Não é camada de runtime: a aplicação continua acessando o banco por `server/utils/database.ts`.
 - **`shared/`** guarda tipos, funções puras e conteúdo usados nos dois lados. Nunca importe `server/` em `app/`.
 
 Não existe camada de controllers neste projeto. O SQL de leitura fica no serviço que o usa. Se um fluxo de escrita crescer, extraia as queries para `server/services/<resource>/queries.ts`; não crie uma camada de controller vazia.
@@ -110,7 +126,7 @@ Exceções e limites:
 - Comentários explicam o contrato, o fluxo ou o motivo. Não comentam o histórico da alteração nem código desativado.
 - Sem `console.log` em `app/`; no servidor, use o logger (o `console` só aparece dentro de `logger.ts`).
 - Nunca leia `process.env` fora de `server/utils/config.ts` no código da aplicação.
-- Nunca escreva SQL fora de `server/utils/database.ts` e do serviço que executa a consulta.
+- Nunca escreva SQL fora de `server/utils/database.ts` e do serviço que executa a consulta. A exceção são as migrations versionadas em `prisma/migrations/`, que não rodam no runtime.
 - Nunca coloque segredo, token, senha ou URL de conexão completa em log, resposta ou conteúdo.
 - Imports usam os aliases do Nuxt: `~~/shared` para a raiz compartilhada e `~/` para `app/`.
 
@@ -366,8 +382,17 @@ Regras:
 - Leitura pública só acessa o que é público: `users`, `sheets` e `logs` com `action_type` `COMMAND` ou `COMPONENT`. Não exponha `servers_config`, `macros` ou dados de sessão.
 - Listagens com `LIMIT` limitam o valor entre 1 e 100 no serviço, mesmo que o handler já valide.
 - Escritas que tocam mais de uma tabela usam `withTransaction` (`BEGIN`, `COMMIT`, `ROLLBACK`, `release`).
-- O site nunca executa DDL. Schema, migrations e GRANTs são do bot; a role é `kami_app`, sem superusuário.
-- Se `COUNT` em `logs` ficar caro, o índice `(action_type, timestamp)` é criado no repositório do bot; o site só documenta a necessidade.
+- O runtime do site nunca executa DDL. O schema Prisma e as migrations vivem em `prisma/` neste repositório; são aplicados por um passo de deploy com `MIGRATION_DATABASE_URL`, uma role com DDL que a aplicação não usa. A role de runtime continua `kami_app`, só DML, sem superusuário.
+- Se `COUNT` em `logs` ficar caro, o índice `(action_type, timestamp)` entra em uma migration do site; o bot apenas consome o schema.
+
+### 3.2.1 Schema e migrations
+
+- `prisma/schema.prisma` é a fonte de verdade do banco compartilhado. O runtime não importa `@prisma/client`; continua usando `pg` + `sql-template-strings`.
+- `prisma/migrations/` preserva nomes e checksums do histórico que já existe em `_prisma_migrations`. Nunca edite uma migration aplicada; correções entram em migration nova.
+- Antes de criar migration, rode `npm run db:status` e `npm run db:diff`. O diff deve estar vazio; se houver drift, reconcilie antes.
+- `npm run db:migrate` (`prisma migrate deploy`) roda uma vez por release, antes do `pm2 reload`, com `MIGRATION_DATABASE_URL`. Nunca no boot da aplicação nem nas duas VPS ao mesmo tempo.
+- `prisma migrate dev` é só para desenvolvimento, com banco local e `PRISMA_SHADOW_DATABASE_URL`. Nunca contra produção ou o banco compartilhado.
+- O bot mantém um espelho do schema apenas para gerar o Prisma Client até ser atualizado para consumir este schema. As migrations do bot estão congeladas; mudanças em `users`, `sheets` ou `macros` são coordenadas com o bot, enquanto tabelas novas exclusivas do site (`site_*`) podem evoluir aqui.
 
 ### 3.3 Config, banco e logs
 
@@ -409,7 +434,19 @@ Regras:
 - HSTS só quando `x-forwarded-proto` é `https`.
 - `x-powered-by` é removido no `beforeResponse`.
 - CSP ainda não está fechada; enquanto isso, não adicione script inline nem origem de terceiro sem revisar a política.
-- Sessão (D2): cookie opaco, `HttpOnly`, `Secure`, `SameSite=Lax`, CSRF por origem e rate limit no login. Mensagem de login sempre genérica.
+- Sessão (D2): token opaco de 32 bytes, hash SHA-256 em `site_sessions`, TTL de 30 dias, `last_seen_at` renovado no máximo uma vez por hora e cookie `kami_sessao` `HttpOnly`/`Secure` em produção/`SameSite=Lax`. CSRF por origem, rate limit por IP e e-mail em memória por processo, com a Cloudflare na borda, e mensagem de login sempre genérica. O logout apaga a linha no banco.
+- Cadastro (D2.1): username obrigatório (3 a 32 caracteres, letras/números/underline), e-mail e senha com bcryptjs, confirmação no cliente, aceite dos termos em `users.terms_accepted_at` e `users.email_verified_at` nulo. Username ou e-mail duplicado responde `409`; rate limit por IP e e-mail. Sem verificação de e-mail e sem recuperação automática de senha nesta etapa; o suporte assume o fluxo manual. O vínculo/merge com o Discord fica para depois e reconcilia o username.
+- Painel (D2.2): `/painel`, `/fichas`, `/ao-vivo`, `/macros` e `/configuracoes` são privados, com `noindex` e dados derivados da sessão. Na D2.2, `sheets`, `irt_sheets` e `macros` eram somente leitura; a D3 liberou a edição de `sheets` e manteve `irt_sheets` e `macros` somente leitura. `irt_sheets` é escrita exclusiva do bot e o tempo real fica para a D5. A troca de senha exige a senha atual e, nesta etapa de desenvolvimento, não revoga as outras sessões; a revogação/força-login fica no hardening da D5.
+- Editor (D3): `/fichas` cria, renomeia, duplica e exclui; `/fichas/:id` edita seções e os tipos de atributo 0–6 (seções 0–5) com salvamento explícito. O JSON segue o mesmo contrato do bot (`sections`); status (`type: 5`) e tabela (`type: 6`) são extensões desta etapa e exigem atualização do bot. Limites reais: ficha 32, seção 2–20, atributo 32, texto 1024, número 32, barra com inteiros e `min <= max`, `actual` no intervalo, `step >= 1` e `step <= max`. `last_use` é a versão otimista: conflito responde `409` e a UI oferece recarregar. Ficha com IRT responde `423` e abre somente leitura; renomear/excluir são bloqueados. `legacy` normaliza na leitura e grava o formato novo no primeiro save. Duplicar cria cópia privada, sem senha e sem IRT. Nenhum HTML do usuário é renderizado com `v-html`.
+- A prévia reutiliza `KamiSheetView` nos modos `documento` e `secoes`; o toggle é local, em `localStorage` (`kami:ficha:modo`), e nunca altera a ficha nem gera `last_use`.
+- Layout do editor (D3): a partir de `901px` as seções ficam em sidebar com a contagem de atributos e só a seção ativa é editada; abaixo disso a sidebar some e entra um `<select>` de seções. Cada atributo é uma linha densa com alça de arraste, tipo, nome, valor e ações (`⧉`, `↑`, `↓`, `×`); listas aparecem resumidas como “N ITENS + EDITAR” e expandem inline. O arraste é HTML5 e sempre tem botões equivalentes acessíveis. A prévia abre em modal centralizado (`1180px`, largura do documento) só quando o botão é clicado, com backdrop e fechamento por `Esc`; não há coluna fixa nem drawer. O header do editor fica sticky a partir de `1500px`. As rotas de editor usam a largura total da janela com o gutter do site (`site-painel-conteudo--editor`, `site-topbar--editor`, `site-painel-nav__interno--editor`).
+- Linhas do editor: caixas fechadas com fundo alternado (`--site-editor-linha`/`--site-editor-linha-alt`, delta de ~3x para ser perceptível); a borda da caixa mistura `--kami-line` e `--kami-line-strong` e as bordas internas ficam em `--kami-line`, para dar hierarquia sem aumentar o ruído. Mantenha contraste AA no texto sobre as duas variantes. Cada linha reserva uma faixa de rótulo no topo (`TIPO`, `NOME`, `VALOR` ou `ATUAL`/`MÍN.`/`MÁX.` na barra) e usa controles de 34px; as ações ficam na mesma faixa dos controles, com um rótulo vazio para alinhar.
+- Editor multimodo (D3.1): `EDITAR`, `POSICIONAMENTO` e `ESTRUTURA` compartilham o mesmo rascunho e um único salvamento, e a troca de modo não grava nada. `POSICIONAMENTO` move atributos dentro e entre seções; `ESTRUTURA` é um canvas WYSIWYG do modo documento com grade de 12 colunas, onde cada seção ocupa `span` de `1` a `12` (largura livre) e as seções da mesma faixa esticam para a mesma altura, com a grade de atributos esticando para preencher o espaço restante (`flex: 1` + `grid-auto-rows: 1fr`). `sheets.sheet_layout` (`JSONB` nullable, sem teto próprio: o corpo da requisição já limita 512 KB) guarda `span` e `rows` por seção, colunas internas (1–12), linhas internas (1–32, ausente = automático), o modo `dense` e a posição de cada atributo dentro dessas colunas e linhas (`attributes: { nome: { span, rows } }`), chaveado por nome; o número antigo (`attributes: { nome: span }`) é lido como `{ span, rows: 1 }`, `full` do formato antigo é lido como largura cheia e nenhum dos dois é mais gravado. `normalizeSheetLayout` poda órfãos, limita `span` de seção a 1–12, `rows` a 1–32, o span de atributo a 1–colunas e a altura a 1–`rows`, converte o par igual ao padrão (span padrão e altura 1) em ausência e devolve `null` quando não há layout. O componente monta `grid-template-rows: repeat(rows, minmax(56px, auto))` quando `rows` existe (56 px vem de `SHEET_LAYOUT_ROW_HEIGHT`) e aplica `grid-row: span var(--attr-rows)` por atributo; `dense` liga `grid-auto-flow: dense`. Sem `rows`, a grade continua com altura automática como antes. O bot ignora a coluna. Mover atributo entre seções renumera `position`; renomear seção ou atributo não perde o layout porque o rascunho é alinhado por índice e serializado por nome só no salvamento. A prévia, a ficha pública (D4) e a ao vivo (D5) usam o mesmo `KamiSheetView` com o layout salvo; no modo `secoes` e abaixo de `900px` toda seção ocupa a linha inteira. No documento, o tipo do atributo não aparece em cada item (só o tipo da seção): números usam `--kami-font-display` com tamanho calculado em runtime para preencher a célula (limitado pela largura, pela altura e pelo número de dígitos, recalculado por `ResizeObserver` e a cada mudança de layout) e barras mostram `atual / máximo` sem o passo, sem repetir mín./máx. abaixo (ficam só em `aria-valuemin`/`aria-valuemax`) e aceitam cor opcional (`color: "#rrggbb"` no próprio valor da barra, ausente = accent; o preenchimento usa `--bar-color`). No EDITAR a linha da barra mostra só ATUAL, MÍN. e MÁX.; PASSO e COR ficam no modal `AJUSTES DA BARRA` (ícone `⚙`), que traz prévia do preenchimento e aplica direto no rascunho. O modal também permite cor de fundo do trilho (`background`), estilo `solid`/`segmented` (um segmento por ponto do máximo, até 60; acima disso a barra volta a ser lisa) e alerta `flashBelow` (padrão 25%) com `blink` ligado por padrão; `blink: false` desliga e a animação `kami-pulse` respeita `prefers-reduced-motion`. O trilho fica em `KamiBarTrack`, compartilhado pelo editor e pela ficha. Barras recebem `−`/`+` (um passo por clique, preso a `min`/`max`) e listas recebem `−`/`+` na quantidade (mínimo 1), adicionar/remover item e mover com `↑`/`↓` ou arraste, com cada item em caixa fechada e fundo alternado. Para não poluir a ficha, os controles da lista só aparecem no modo de edição do atributo — botão `EDITAR`/`CONCLUIR` no cabeçalho, exclusivo do tipo lista — que também transforma o nome do item em input. Tudo isso quando `KamiSheetView` está com `adjustable`, que emite `adjust-bar`, `adjust-quantity`, `add-list-item`, `remove-list-item`, `move-list-item` e `update-list-name`; a ficha pública e a ao vivo não passam a prop e continuam somente leitura. O cabeçalho da seção no `KamiSheetView` alinha largura (`8/12`), o toggle `EDITAR`/`CONCLUIR` e o tipo na mesma linha: os três usam 22px de altura e mono de 10px, e as caixas de largura e toggle têm `min-width: 56px`; o override de tipografia do painel não se aplica ao tipo. Largura e tipo só aparecem com `editable` (canvas da `ESTRUTURA`); na prévia, na ficha pública e na ao vivo ficam ocultos, restando apenas o toggle da descrição.
+- Inspetor da `ESTRUTURA`: grupos (`LARGURA DA SEÇÃO`, `GRADE DA SEÇÃO`, `ATRIBUTOS`, `ORDEM DAS SEÇÕES`) com título em `--kami-accent`, nomes de atributo em 13px, dicas em 12px e coluna de 340px a partir de `1200px`, com rolagem interna. A lista de atributos sempre exibe largura e altura em campos numéricos (`1..colunas` e `1..rows`, com clamp no `change`); com `rows` em AUTO só o campo de altura fica desabilitado (com `title` explicando), e o de largura continua funcionando.
+- Modal de `CONFIGURAÇÕES` da ficha (`/fichas/:id`): substitui o botão destrutivo do header e concentra as ações administrativas, começando por `EXCLUIR FICHA` com confirmação dupla. Abre com foco no dialog e fecha por `Esc`, backdrop ou `FECHAR`; é o lugar previsto para ficha pública, senha e link. A exclusão continua bloqueada quando a ficha está ao vivo/IRT (`liveBlocked`).
+- Seção de descrição (D3.1, `type: 1`): um único texto multilinha, sem grade de atributos. Por baixo ela guarda no máximo um atributo de texto (`name` oculto), aceita vazio e até 4096 caracteres (`SHEET_DESCRIPTION_MAX_LENGTH`), enquanto o texto de seção padrão continua obrigatório e limitado a 1024 (`SHEET_TEXT_MAX_LENGTH`); os dois limites vivem em `shared/constants/sheet.ts` e são aplicados no Zod por tipo de seção e na validação do rascunho. No editor o modo `EDITAR` mostra um `textarea` sempre editável com contador e sem `+ ATRIBUTO`, o inspetor esconde colunas/larguras de atributo e o posicionamento exibe uma nota em vez da lista. No render compartilhado (`KamiSheetView`) com `adjustable` — canvas `ESTRUTURA` e prévia — o cabeçalho da seção ganha o mesmo atalho `EDITAR`/`CONCLUIR` dos atributos de lista, que troca o parágrafo pelo `textarea` e emite `update-description` para o rascunho, sem exigir trocar para o modo de edição. Seções legadas com mais de um atributo continuam renderizando como grade até o usuário clicar em `CONVERTER EM TEXTO`, que junta `Nome: valor` com linha em branco e falha se o resultado passar de 4096 — nada é convertido automaticamente. O renderer emite o parágrafo quando há exatamente um atributo de texto e `DESCRIÇÃO VAZIA.` quando não há nenhum.
+- Seção de cabeçalho (`type: 2`): título e subtítulo fixos no topo, imagem opcional à direita e grade de atributos livres abaixo. Os papéis ficam em `sheet_layout.header` (`title`, `subtitle`, `image`, `imageWidth`, `titleSize`) apontando para atributos comuns de texto/imagem, então o JSON que o bot lê não muda. `imageWidth` é 1–12 (padrão 4) e o título nunca quebra: o componente reduz a fonte a partir de `titleSize` (32–96, padrão 56) até 18px e usa elipse se ainda não couber. Sem imagem (valor vazio), a coluna direita some e a grade ocupa a largura toda; abaixo de 900px empilha. O editor cria `Título`, `Subtítulo` e `Imagem` ao escolher o tipo e mantém os demais atributos como grade livre; não há conversão de seções antigas.
+- Status, galeria e tabela (D3.2): uma seção de status (`type: 3`) guarda um único atributo `type: 5` com `{ items: [{ id, name, color, blink, active, icon }] }` — até 32 cards grandes que preenchem a seção, nome 1–32, cor `#rrggbb`, `id` estável de até 16 caracteres e `active` salvo na ficha. `icon` é uma URL de imagem opcional (vazia usa um anel genérico na cor do status); a imagem ou o anel crescem dentro do card e ficam coloridos/acesos quando o status está ativo. No render cada card vira toggle apenas com `adjustable` (editor/prévia) e emite `toggle-status`, enquanto a ficha ao vivo mostra só o estado. A galeria (`type: 4`) usa as imagens comuns (`type: 2`) e ocupa de 1 a 6 colunas (`SHEET_GALLERY_COLUMNS_MAX`), com `span` por imagem em `sheet_layout` (padrão 1) para respeitar proporções diferentes; a imagem mantém a proporção natural, abre lightbox com teclado (`Esc`, `←`, `→`) e botões físicos de anterior/próxima/fechar, e a seção não usa `rows`/`dense`. Qualquer outro atributo de imagem (inclusive a imagem do cabeçalho) abre o mesmo lightbox com um único item, sem carrossel, e o botão de fechar fica alinhado ao canto superior direito da imagem. A tabela (`type: 5`) guarda um único atributo `type: 6` com `{ columns: string[], rows: string[][] }` — 2–8 colunas, até 100 linhas, coluna 1–32 e célula até 128 caracteres, só texto nesta etapa. Essas seções não usam a grade de atributos; ao escolher status/tabela o editor cria o bloco especial e remove os demais atributos mediante confirmação, e ao sair do tipo remove o bloco depois de confirmar. A validação do Zod, a normalização e a validação do rascunho aplicam os mesmos limites, incluindo a URL do ícone. No `POSICIONAMENTO`, seções que não recebem atributos (descrição, status e tabela) mostram uma nota explicando o bloco único e ficam bloqueadas: o card não aceita drop e a seção não aparece como destino no seletor `→ SEÇÃO`. A galeria só aparece como destino para atributos de imagem, tanto no seletor quanto no arraste. A galeria só aparece como destino para atributos de imagem, tanto no seletor quanto no arraste.
 - Nunca confie em id de usuário, papel ou empresa enviados pelo cliente; derive da sessão no servidor.
 - Rotas privadas recebem `noindex` e `Disallow` no `robots.txt`.
 - `kami_app` tem o mínimo de privilégios; `DELETE` em `users` só entra com o fluxo acordado com o bot.
@@ -625,7 +662,7 @@ Teste com datas ISO fixas e valide o fallback (`-`, `--:--:--`), não o fuso da 
 - Use token antes de valor literal: `var(--kami-accent)`, `var(--kami-text-muted)`, `var(--kami-line)`, `var(--kami-space-4)`, `var(--kami-font-display)`, `var(--site-max)`, `var(--site-gutter)`, `var(--site-font-prosa)`.
 - Não renomeie classes existentes. Componente do design system usa `.kami-*`; composição do site usa `.site-*`. Classes novas seguem o bloco existente: `bloco__elemento--estado`.
 - Não crie `<style>` em `.vue`. Layout novo vai para `site.css`; estilo de componente do design system vem de `kami.css`.
-- Breakpoints existentes: `1080px`, `900px`, `860px`, `720px`, `560px`, `480px`. Use-os em vez de inventar valores; teste 360 px e 1024 px.
+- Breakpoints existentes: `1500px`, `1080px`, `901px`, `900px`, `860px`, `720px`, `560px`, `480px`. Use-os em vez de inventar valores; teste 360 px e 1024 px. `1500px` (coluna de prévia) e `901px` (sidebar de seções) são específicos do editor.
 - `@media (prefers-reduced-motion: reduce)` no fim do arquivo/bloco desliga transições e animações.
 - Foco visível é obrigatório: use `:focus-visible` com `var(--kami-shadow-focus)`; não remova outline sem substituto.
 - Fontes ficam em `public/fonts` com as licenças; o preload de Oswald SemiBold e Fira Code Regular está no `nuxt.config.ts`. Não adicione fonte sem o arquivo de licença.
@@ -772,6 +809,7 @@ describe('serviço de estatísticas', () => {
 - Teste tolerante a banco ausente: `/api/estatisticas` e `/api/ready` aceitam `200` ou `503`; nunca dependa de números reais.
 - Cubra skip link, `lang`, títulos, 360 px sem rolagem horizontal, 404/410, redirects, `robots.txt` e `sitemap.xml` ao mexer em rota/SEO.
 - Teste que a landing não mostra zero falso nem vaza versão/telemetria.
+- Os testes de fichas autenticados usam `tests/e2e/sheets.setup.ts` para fazer o login uma única vez e salvar `tests/e2e/.auth/sheets.json` (ignorado no Git); o projeto `e2e` depende do projeto `setup` e herda esse `storageState`. Isso evita estourar o limite de 5 logins por e-mail do rate limiter.
 
 ```ts
 import { expect, test } from '@playwright/test';
@@ -808,19 +846,19 @@ test('a API de estatísticas respeita o contrato de indisponibilidade', async ({
 | `npm run typecheck` | antes de abrir PR                                         |
 | `npm run check`     | fechamento: formato + tipos + unidade + build             |
 
-O CI (`.github/workflows/ci.yml`) roda `format:check`, `typecheck`, `test`, `build` e, em job separado, o E2E com Chromium. O E2E exige `npx playwright install chromium` na máquina local.
+A validação local roda `format:check`, `db:validate`, `typecheck`, `test` e `build`; o E2E é um job separado. O workflow de CI ainda não está versionado. O E2E exige `npx playwright install chromium` na máquina local.
 
 ## 6. Versionamento e commits
 
-- SemVer `MAJOR.MINOR.PATCH` em `package.json`; a versão atual é `6.0.0`.
-- Cada entrega sobe a minor a partir da atual: D1 `6.0.0`, D2 `6.1.0`, D3 `6.2.0`, e assim
-  por diante. Correção sobe patch.
+- SemVer `MAJOR.MINOR.PATCH` em `package.json`. A produção está em `6.0.0`; a versão
+  de desenvolvimento é `6.2.0`.
+- Enquanto o site estiver em desenvolvimento, não há bump de versão por entrega. D2,
+  D2.1, D2.2 e D3 são commits dentro da `6.2.0`; a tag `v6.2.0` e o bump de release
+  entram na promoção para produção, com a D3 já concluída.
+- Commits de desenvolvimento usam descrição (`D2.2 - Painel e conta`, `D3 - Editor de
+fichas`). O commit de release usa `v6.2.0 - ...`.
 - Trabalhe em branch; nunca commite direto na `main`. Fluxo: `feature_branch → dev → beta → main`. Feature branch é para mudança grande ou trabalho paralelo; patch pode ir direto na `dev`.
-- Commit de merge na `dev` usa `vX.Y.Z - Descrição`, em PT-BR. Na feature branch o número é opcional.
-- Exemplos:
-    - `v6.1.0 - Login e sessão com Postgres`
-    - `v6.0.1 - Correção no fallback das estatísticas`
-- Tag `vX.Y.Z` só depois de CI verde. Build, `.output`, `.nuxt`, `test-results`, `playwright-report`, logs e `.env` não entram no Git.
+- Tag `vX.Y.Z` só depois de CI/E2E verdes, no release. Build, `.output`, `.nuxt`, `test-results`, `playwright-report`, logs e `.env` não entram no Git.
 - Mudou contrato, operação ou escopo? Atualize `PLANEJAMENTO.md`, este guia ou `docs/deploy.md` no mesmo PR.
 - Deploy segue `docs/deploy.md`: uma VPS por vez, `npm ci`, `npm run build`, `pm2 reload`, conferir `/api/ready`; rollback pela tag anterior.
 
@@ -843,7 +881,11 @@ O CI (`.github/workflows/ci.yml`) roda `format:check`, `typecheck`, `test`, `bui
 - [ ] SQL parametrizado com `sql-template-strings`; nenhuma concatenação ou identificador vindo do cliente.
 - [ ] Serviço com cache/fallback quando a dependência pode falhar; estatística nunca vira zero falso.
 - [ ] Erro interno não vaza; log com contexto mascarado e `x-request-id`.
-- [ ] Role `kami_app`, sem DDL e sem superusuário.
+- [ ] Role `kami_app` sem DDL; migrations aplicadas com `MIGRATION_DATABASE_URL`, schema validado e `db:diff` vazio.
+- [ ] Rotas do painel protegidas, `noindex`, dados derivados da sessão; IRT/macros somente leitura; senha exige a atual.
+- [ ] Editor de fichas: tipos 0–6 e seções 0–5, legacy, concorrência por `last_use` (`409`), IRT (`423`) e prévia local.
+- [ ] Editor multimodo: conteúdo, posicionamento e estrutura no mesmo rascunho; layout em `sheet_layout` sem tocar no JSON do bot.
+- [ ] Ficha IRT não aceita renomear/excluir; duplicar cria cópia privada, sem senha e sem vínculo.
 - [ ] Teste unitário do serviço/utilitário e E2E do contrato público.
 
 **Frontend, acessibilidade e SEO**
