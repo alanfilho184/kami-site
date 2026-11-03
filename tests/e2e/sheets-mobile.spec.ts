@@ -93,6 +93,16 @@ test('mobile: barra inferior fixa salva a ficha e não duplica as ações do top
             expect(footerLinks.y + footerLinks.height).toBeLessThanOrEqual(bar.y + 1);
         }
 
+        const firstFooterLink = await page.locator('.site-rodape__links a').first().boundingBox();
+        const footerMeta = await page.locator('.site-rodape__meta').boundingBox();
+
+        expect(firstFooterLink?.height ?? 0).toBeGreaterThanOrEqual(44);
+        expect(footerMeta).not.toBeNull();
+
+        if (footerLinks && footerMeta) {
+            expect(footerMeta.y).toBeGreaterThanOrEqual(footerLinks.y + footerLinks.height - 1);
+        }
+
         const saved = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
 
         currentVersion = saved.version;

@@ -1288,6 +1288,45 @@
     letter-spacing: 0.08em;
 }
 
+@media (max-width: 720px) {
+    .site-rodape__interno {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--kami-space-5);
+        padding-block: var(--kami-space-6);
+    }
+
+    .site-rodape__marca {
+        gap: 2px;
+    }
+
+    .site-rodape__assinatura {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+    }
+
+    .site-rodape__links {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0 var(--kami-space-5);
+        width: 100%;
+    }
+
+    .site-rodape__links a {
+        display: flex;
+        align-items: center;
+        min-height: 44px;
+        border-top: var(--kami-border-soft);
+    }
+
+    .site-rodape__meta {
+        align-self: flex-start;
+        width: 100%;
+        padding-top: var(--kami-space-3);
+        border-top: var(--kami-border-soft);
+    }
+}
+
 /* --- Erro ----------------------------------------------------------------- */
 
 .site-erro {

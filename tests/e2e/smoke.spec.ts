@@ -72,7 +72,7 @@ test('a topbar mantém respiro lateral em telas pequenas e grandes', async ({ pa
     }
 });
 
-test('o rodapé mantém os itens alinhados no mobile', async ({ page }) => {
+test('o rodapé mantém os itens organizados no mobile', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 800 });
     await page.goto('/');
 
@@ -81,12 +81,19 @@ test('o rodapé mantém os itens alinhados no mobile', async ({ page }) => {
     const meta = page.locator('.site-rodape__meta');
 
     const alturaAssinatura = await assinatura.evaluate(element => Math.round(element.getBoundingClientRect().height));
+
+    expect(alturaAssinatura).toBeLessThan(20);
+
     const tops = await links.evaluateAll(elements =>
         elements.map(element => Math.round(element.getBoundingClientRect().top))
     );
+    const alturas = await links.evaluateAll(elements =>
+        elements.map(element => Math.round(element.getBoundingClientRect().height))
+    );
 
-    expect(alturaAssinatura).toBeLessThan(20);
-    expect(new Set(tops).size).toBe(1);
+    // Duas colunas no mobile: o número de linhas é metade dos links (arredondado).
+    expect(new Set(tops).size).toBe(Math.ceil(tops.length / 2));
+    expect(Math.min(...alturas)).toBeGreaterThanOrEqual(44);
 
     const alinhamento = await meta.evaluate(element => {
         const container = element.closest('.site-rodape__interno');
@@ -95,15 +102,23 @@ test('o rodapé mantém os itens alinhados no mobile', async ({ page }) => {
             return Number.POSITIVE_INFINITY;
         }
 
-        const metaRight = Math.round(element.getBoundingClientRect().right);
-        const containerRight = Math.round(
-            container.getBoundingClientRect().right - parseFloat(getComputedStyle(container).paddingRight)
+        const metaLeft = Math.round(element.getBoundingClientRect().left);
+        const containerLeft = Math.round(
+            container.getBoundingClientRect().left + parseFloat(getComputedStyle(container).paddingLeft)
         );
 
-        return Math.abs(metaRight - containerRight);
+        return Math.abs(metaLeft - containerLeft);
     });
 
     expect(alinhamento).toBeLessThanOrEqual(1);
+
+    const metaAbaixo = await meta.evaluate(element => {
+        const links = element.closest('.site-rodape__interno')?.querySelector('.site-rodape__links');
+
+        return links ? element.getBoundingClientRect().top >= links.getBoundingClientRect().bottom - 1 : false;
+    });
+
+    expect(metaAbaixo).toBe(true);
 });
 
 test('o skip link move o foco para o conteúdo', async ({ page }) => {
