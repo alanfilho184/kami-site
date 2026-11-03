@@ -3869,7 +3869,15 @@
     }
 
     .site-painel-conteudo--editor {
-        padding-bottom: calc(88px + env(safe-area-inset-bottom));
+        padding-bottom: 0;
+    }
+
+    .site-painel-shell--editor .site-rodape {
+        margin-top: var(--kami-space-6);
+    }
+
+    .site-painel-shell--editor .site-rodape__interno {
+        padding-bottom: calc(var(--kami-space-7) + 72px + env(safe-area-inset-bottom));
     }
 
     .site-editor__modo-btn,

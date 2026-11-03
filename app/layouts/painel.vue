@@ -50,7 +50,10 @@ export default defineComponent({
 </script>
 
 <template>
-    <div class="kami-shell site-painel-shell">
+    <div
+        class="kami-shell site-painel-shell"
+        :class="{ 'site-painel-shell--editor': isEditor }"
+    >
         <div
             class="kami-topline"
             aria-hidden="true"
