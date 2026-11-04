@@ -81,6 +81,13 @@ test('mobile: barra inferior fixa salva a ficha e não duplica as ações do top
         await page.locator('.site-editor__acoes-fixas').getByRole('button', { name: 'SALVAR' }).click();
         await expect(page.getByText('FICHA SALVA.')).toBeVisible();
 
+        await page.locator('.site-editor__acoes-fixas').getByRole('button', { name: 'Visualizar ficha' }).click();
+        await expect(page.locator('.site-editor__leitura')).toBeVisible();
+        await expect(page.locator('.site-editor__acoes-fixas')).toHaveCount(0);
+        await expectNoHorizontalScroll(page);
+        await page.getByRole('button', { name: 'EDITAR', exact: true }).click();
+        await expect(page.locator('.site-editor__acoes-fixas')).toBeVisible();
+
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
 
         const footerLinks = await page.locator('.site-rodape__links').boundingBox();

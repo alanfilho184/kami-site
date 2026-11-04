@@ -158,22 +158,50 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     expect(described.attributes.sections[1].attributes).toHaveLength(1);
     expect(described.attributes.sections[1].attributes[0].value).toBe('Descrição da seção de teste.');
 
-    // Fora do modo de edição, o tipo e a largura da seção não aparecem.
-    await page
-        .getByRole('group', { name: 'Modo do editor' })
-        .getByRole('button', { name: 'EDITAR', exact: true })
-        .click();
-    await page.getByRole('button', { name: 'PRÉVIA', exact: true }).click();
-    await expect(page.locator('.site-editor__preview .site-sheetview__tipo')).toHaveCount(0);
-    await expect(page.locator('.site-editor__preview .site-sheetview__secao-largura')).toHaveCount(0);
-    await page.keyboard.press('Escape');
-    await expect(page.locator('.site-editor__preview')).toHaveCount(0);
+    // No modo leitura, o tipo e a largura da seção não aparecem.
+    await page.getByRole('button', { name: 'VISUALIZAR', exact: true }).click();
+    await expect(page.locator('.site-editor__leitura')).toBeVisible();
+    await expect(page.locator('.site-editor__leitura .site-sheetview__tipo')).toHaveCount(0);
+    await expect(page.locator('.site-editor__leitura .site-sheetview__secao-largura')).toHaveCount(0);
+    await expect(page).toHaveURL(/ver=1/);
+    await page.getByRole('button', { name: 'EDITAR', exact: true }).click();
+    await expect(page.locator('.site-editor__leitura')).toHaveCount(0);
+    await expect(page.locator('.site-editor__topo')).toBeVisible();
 
     await page.getByRole('button', { name: 'CONFIGURAÇÕES', exact: true }).click();
     await page.getByRole('button', { name: 'EXCLUIR FICHA', exact: true }).click();
     await page.getByRole('button', { name: 'CONFIRMAR EXCLUSÃO' }).click();
     await page.waitForURL('**/fichas');
     await expect(page.locator('.site-fichas__item').filter({ hasText: sheetName })).toHaveCount(0);
+});
+
+test('o modo leitura preserva o rascunho e alterna pelo atalho', async ({ page }) => {
+    test.setTimeout(60_000);
+    test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
+
+    const sheet = await createSheetThroughApi(page, uniqueSheetName());
+
+    try {
+        await page.goto(`/fichas/${sheet.id}`);
+        await waitForHydration(page);
+
+        await page.getByRole('button', { name: 'ADICIONAR ATRIBUTO' }).click();
+        await page.locator('#atributo-nome-0-0').fill('Rascunho');
+        await page.locator('#atributo-valor-0-0').fill('Ainda não salvo.');
+
+        await page.getByRole('button', { name: 'VISUALIZAR', exact: true }).click();
+        await expect(page.locator('.site-editor__leitura')).toBeVisible();
+        await expect(page.locator('.site-editor__leitura .site-sheetview__texto')).toContainText('Ainda não salvo.');
+        await expect(page.locator('.site-editor__topo')).toHaveCount(0);
+        await expect(page).toHaveURL(/ver=1/);
+
+        await page.keyboard.press('Control+Shift+V');
+        await expect(page.locator('.site-editor__leitura')).toHaveCount(0);
+        await expect(page.locator('.site-editor__topo')).toBeVisible();
+        await expect(page.locator('#atributo-valor-0-0')).toHaveValue('Ainda não salvo.');
+    } finally {
+        await deleteSheetThroughApi(page, sheet.id, sheet.version);
+    }
 });
 
 test('a barra guarda a cor escolhida e o preenchimento usa essa cor', async ({ page }) => {

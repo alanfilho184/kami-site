@@ -3654,53 +3654,67 @@
     color: var(--kami-text);
 }
 
-.site-editor__preview {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    z-index: calc(var(--kami-z-sticky) + 2);
+.site-editor__leitura {
     display: flex;
     flex-direction: column;
-    gap: var(--kami-space-3);
-    width: min(1180px, 94vw);
-    max-height: 88vh;
-    overflow-y: auto;
-    padding: var(--kami-space-4);
-    border: var(--kami-border-accent);
-    background: var(--kami-surface);
-    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
-    transform: translate(-50%, -50%);
-    container-type: inline-size;
+    gap: var(--kami-space-6);
+    width: 100%;
+    max-width: var(--site-max);
+    margin-inline: auto;
+    padding-block: var(--kami-space-6);
 }
 
-.site-editor__preview-documento {
-    min-width: 0;
-    padding: var(--kami-space-2) 0;
-}
-
-.site-editor__preview-topo {
+.site-editor__leitura-topo {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
-    gap: var(--kami-space-2);
+    gap: var(--kami-space-4);
+    flex-wrap: wrap;
+    padding-bottom: var(--kami-space-4);
+    border-bottom: var(--kami-border);
 }
 
-.site-editor__preview-fechar {
-    padding: 4px;
-    border: 0;
-    background: transparent;
+.site-editor__leitura-identidade {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.site-editor__leitura-titulo {
+    margin: 0;
+    font-family: var(--kami-font-display);
+    font-size: clamp(28px, 4vw, 52px);
+    line-height: 1.05;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--kami-text);
+    overflow-wrap: anywhere;
+}
+
+.site-editor__leitura-aviso {
+    margin: 0;
     font-family: var(--kami-font-mono);
     font-size: 10px;
     letter-spacing: 0.08em;
-    color: var(--kami-text-dim);
-    cursor: pointer;
+    text-transform: uppercase;
+    color: var(--kami-warn);
 }
 
-.site-editor__preview-fundo {
-    position: fixed;
-    inset: 0;
-    z-index: calc(var(--kami-z-sticky) + 1);
-    background: rgba(0, 0, 0, 0.66);
+.site-editor__leitura-acoes {
+    display: flex;
+    gap: var(--kami-space-2);
+    flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+    .site-editor__leitura {
+        padding-block: var(--kami-space-4);
+    }
+
+    .site-editor__leitura-topo {
+        align-items: flex-start;
+    }
 }
 
 .site-editor__config {
@@ -3799,11 +3813,6 @@
 }
 
 @media (max-width: 900px) {
-    .site-editor__preview {
-        width: 96vw;
-        max-height: 92vh;
-    }
-
     .site-editor__sidebar {
         display: none;
     }

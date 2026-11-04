@@ -263,20 +263,21 @@ posterior; a D2.1 já permite que novos usuários criem conta no site.
 
 ## 6. Entregas
 
-| Entrega | Tema                             | Versão          | Estado            |
-| ------- | -------------------------------- | --------------- | ----------------- |
-| D0      | Fundação técnica e deploy        | `0.1.0`         | Concluída         |
-| D1      | Landing, estatísticas e jurídico | `6.0.0`         | Em produção       |
-| D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev  |
-| D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev  |
-| D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev  |
-| D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev  |
-| D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev  |
-| D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev  |
-| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev  |
-| D4      | Fichas públicas                  | —               | Depois da 6.2.0   |
-| D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0   |
-| D6      | Tutoriais                        | —               | Fora desta versão |
+| Entrega | Tema                             | Versão          | Estado              |
+| ------- | -------------------------------- | --------------- | ------------------- |
+| D0      | Fundação técnica e deploy        | `0.1.0`         | Concluída           |
+| D1      | Landing, estatísticas e jurídico | `6.0.0`         | Em produção         |
+| D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev    |
+| D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev    |
+| D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev    |
+| D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev    |
+| D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev    |
+| D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev    |
+| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev    |
+| D4      | Fichas públicas                  | `6.2.0` (dev)   | Em andamento no dev |
+| D4.1    | Modo leitura do dono             | `6.2.0` (dev)   | Concluída no dev    |
+| D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0     |
+| D6      | Tutoriais                        | —               | Fora desta versão   |
 
 A versão de desenvolvimento é `6.2.0`; a produção continua `6.0.0`. A D3 está
 concluída no desenvolvimento e o release `6.2.0` fica pendente de migração no
@@ -690,6 +691,33 @@ Aceite:
 - senha errada não permite acesso e é limitada;
 - ficha pública não aparece em buscadores;
 - URL antiga continua funcionando.
+
+### D4.1 - Modo leitura do dono
+
+**Objetivo:** permitir que o dono veja a ficha sem o chrome do editor antes de abrir o compartilhamento público.
+
+**Estado:** concluída no desenvolvimento em 04/11/2026, dentro da `6.2.0`.
+
+Escopo:
+
+- o editor alterna para leitura por `?ver=1` na mesma rota `/fichas/:id`, sem recarregar e sem perder o rascunho;
+- a leitura renderiza o `KamiSheetView` no modo documento, sem sidebar, header de edição, inspetor, barra de ações ou controles (`adjustable` desligado);
+- cabeçalho enxuto com nome da ficha, aviso de alterações não salvas e botões `EDITAR` e `FICHAS`;
+- atalho `Ctrl+Shift+V` alterna leitura/edição (ignorado enquanto o foco está em campo de texto, para não roubar o colar sem formatação); `Esc` sai da leitura;
+- a prévia em modal foi substituída por esse modo, que usa o mesmo rascunho e preserva a rolagem ao voltar;
+- o link público, senha e controle de privacidade continuam pendentes na D4.
+
+Aceite:
+
+- entrar na leitura mostra alterações não salvas e sair mantém o rascunho no editor;
+- o modo leitura não exibe tipo/largura de seção nem controles de edição;
+- o atalho funciona no desktop e a barra inferior mobile some na leitura;
+- a URL com `?ver=1` abre direto no modo leitura.
+
+Resultado em 04/11/2026:
+
+- 1 E2E novo de rascunho + atalho e a checagem do modo leitura no E2E mobile;
+- 137 testes unitários e 54 E2E no build de produção (53 anteriores + 1 novo, 1 skip).
 
 ### D5 - Tempo real, sincronização e hardening
 
@@ -1156,11 +1184,11 @@ Cloudflare (DNS + proxy + health check / failover)
 
 ## 20. Próximos passos imediatos (release 6.2.0 e D4)
 
-1. Aplicar as migrations no `kami_prod` com a role de migration e validar o `db:diff`.
-2. Fechar a revisão jurídica do texto de conta e cookies.
-3. Promover a `6.2.0` (D2, D2.1, D2.2 e D3) para `beta`/`main`, com smoke autenticado.
-4. Iniciar a D4: preservar `/ficha/:userId/:sheetName`, com privacidade e senha opcional.
-5. Reaproveitar `KamiSheetView` na ficha pública, sempre com `noindex`.
+1. Concluir a D4: link público em `/ficha/:userId/:sheetName`, `is_public`, senha opcional e cookie de acesso.
+2. Reaproveitar o modo leitura (D4.1) no render público, sempre com `noindex`.
+3. Aplicar as migrations no `kami_prod` com a role de migration e validar o `db:diff`.
+4. Fechar a revisão jurídica do texto de conta e cookies.
+5. Promover a `6.2.0` (D2, D2.1, D2.2, D3 e D4) para `beta`/`main`, com smoke autenticado.
 6. Manter IRT e macros somente leitura até a D5 e a definição do editor de macros.
 
 ## 21. Registro de decisões

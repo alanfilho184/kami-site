@@ -112,7 +112,7 @@ Os testes de login bem-sucedido usam uma conta de teste local. Defina
 ignorados. O teste de cadastro bem-sucedido só roda com `E2E_REGISTER=1` e cria
 uma conta descartável com username e e-mail únicos. Nunca use uma conta real de produção.
 
-O estado atual tem 137 testes unitários e 53 E2E. O rate limit de login é em memória por
+O estado atual tem 137 testes unitários e 54 E2E. O rate limit de login é em memória por
 processo; várias execuções seguidas do E2E no mesmo servidor podem responder `429`.
 Reinicie o servidor para zerar o contador.
 

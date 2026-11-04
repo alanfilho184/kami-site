@@ -32,6 +32,9 @@ export default defineComponent({
         isEditor(): boolean {
             return this.$route.path.startsWith('/fichas/');
         },
+        isReading(): boolean {
+            return this.isEditor && this.$route.query.ver === '1';
+        },
         footerLinks(): FooterLink[] {
             const links: FooterLink[] = [
                 { label: 'PAINEL', href: '/painel' },
@@ -52,7 +55,7 @@ export default defineComponent({
 <template>
     <div
         class="kami-shell site-painel-shell"
-        :class="{ 'site-painel-shell--editor': isEditor }"
+        :class="{ 'site-painel-shell--editor': isEditor && !isReading }"
     >
         <div
             class="kami-topline"

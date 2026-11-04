@@ -41,7 +41,7 @@ import {
 } from '~/utils/dialog';
 
 type EditorMode = 'editar' | 'posicionamento' | 'estrutura';
-type EditorDialog = 'preview' | 'settings' | 'bar';
+type EditorDialog = 'settings' | 'bar';
 
 interface NormalizedDraft {
     name: string;
@@ -705,10 +705,10 @@ export default defineNuxtComponent({
             spanOptions: [12, 8, 6, 4, 3],
             activeSectionIndex: 0,
             structureFilter: '',
-            previewOpen: false,
             settingsOpen: false,
             barSettingsAttribute: null as SheetAttribute | null,
             isMobileViewport: false,
+            readingScrollY: 0,
             expandedLists: [] as SheetAttribute[],
             dragSectionIndex: null as number | null,
             dragOverSectionIndex: null as number | null,
@@ -900,10 +900,6 @@ export default defineNuxtComponent({
             return `Seção ${this.activeSection?.name ?? ''}`;
         },
         activeDialog(): EditorDialog | null {
-            if (this.previewOpen) {
-                return 'preview';
-            }
-
             if (this.settingsOpen) {
                 return 'settings';
             }
@@ -913,6 +909,9 @@ export default defineNuxtComponent({
             }
 
             return null;
+        },
+        isReading(): boolean {
+            return this.$route.query.ver === '1';
         }
     },
     watch: {
@@ -933,7 +932,6 @@ export default defineNuxtComponent({
 
             if (next) {
                 const refs: Record<EditorDialog, string> = {
-                    preview: 'previewDialog',
                     settings: 'settingsDialog',
                     bar: 'barDialog'
                 };
@@ -1151,7 +1149,6 @@ export default defineNuxtComponent({
         },
         handleDialogKeydown(name: EditorDialog, event: KeyboardEvent): void {
             const refs: Record<EditorDialog, string> = {
-                preview: 'previewDialog',
                 settings: 'settingsDialog',
                 bar: 'barDialog'
             };
@@ -1161,18 +1158,47 @@ export default defineNuxtComponent({
                 trapDialogTab(event, element);
             }
         },
-        togglePreview(): void {
-            this.previewOpen = !this.previewOpen;
-
-            if (this.previewOpen) {
-                this.settingsOpen = false;
-                this.barSettingsAttribute = null;
-                this.showDeleteConfirm = false;
+        enterReading(): void {
+            if (this.isReading) {
+                return;
             }
+
+            this.settingsOpen = false;
+            this.barSettingsAttribute = null;
+            this.showDeleteConfirm = false;
+            this.readingScrollY = window.scrollY;
+
+            const query = { ...this.$route.query, ver: '1' };
+
+            void this.$router.replace({ query }).then(() => {
+                window.scrollTo({ top: 0 });
+            });
+        },
+        exitReading(): void {
+            if (!this.isReading) {
+                return;
+            }
+
+            const query = { ...this.$route.query };
+
+            delete query.ver;
+
+            void this.$router.replace({ query }).then(() => {
+                void this.$nextTick(() => {
+                    window.scrollTo({ top: this.readingScrollY });
+                });
+            });
+        },
+        toggleReading(): void {
+            if (this.isReading) {
+                this.exitReading();
+                return;
+            }
+
+            this.enterReading();
         },
         openSettings(): void {
             this.settingsOpen = true;
-            this.previewOpen = false;
             this.barSettingsAttribute = null;
             this.showDeleteConfirm = false;
         },
@@ -1183,10 +1209,6 @@ export default defineNuxtComponent({
         setMode(mode: EditorMode): void {
             this.mode = mode;
             this.barSettingsAttribute = null;
-
-            if (mode === 'estrutura') {
-                this.previewOpen = false;
-            }
 
             this.clearDrag();
             this.clearStructureDrag();
@@ -2147,7 +2169,6 @@ export default defineNuxtComponent({
 
             this.barSettingsAttribute = attribute;
             this.settingsOpen = false;
-            this.previewOpen = false;
         },
         closeBarSettings(): void {
             this.barSettingsAttribute = null;
@@ -2610,6 +2631,15 @@ export default defineNuxtComponent({
             event.returnValue = '';
         },
         handleKeydown(event: KeyboardEvent): void {
+            const target = event.target as HTMLElement | null;
+            const typing = Boolean(
+                target &&
+                (target.tagName === 'INPUT' ||
+                    target.tagName === 'TEXTAREA' ||
+                    target.tagName === 'SELECT' ||
+                    target.isContentEditable)
+            );
+
             if (event.key === 'Escape' && this.barSettingsAttribute) {
                 this.closeBarSettings();
                 return;
@@ -2620,8 +2650,15 @@ export default defineNuxtComponent({
                 return;
             }
 
-            if (event.key === 'Escape' && this.previewOpen) {
-                this.previewOpen = false;
+            if (event.key === 'Escape' && this.isReading) {
+                event.preventDefault();
+                this.exitReading();
+                return;
+            }
+
+            if (!typing && (event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === 'v') {
+                event.preventDefault();
+                this.toggleReading();
                 return;
             }
 
@@ -2677,7 +2714,50 @@ export default defineNuxtComponent({
         </KamiEmptyState>
 
         <template v-else-if="sheet">
-            <header class="site-editor__topo">
+            <div
+                v-if="isReading"
+                class="site-editor__leitura"
+            >
+                <header class="site-editor__leitura-topo">
+                    <div class="site-editor__leitura-identidade">
+                        <p class="site-eyebrow">MODO LEITURA</p>
+                        <h1 class="site-editor__leitura-titulo">{{ name || sheet.name }}</h1>
+                        <p
+                            v-if="hasChanges"
+                            class="site-editor__leitura-aviso"
+                        >
+                            ALTERAÇÕES NÃO SALVAS · VISUALIZANDO O RASCUNHO
+                        </p>
+                    </div>
+                    <div class="site-editor__leitura-acoes">
+                        <KamiButton
+                            size="sm"
+                            @click="exitReading"
+                        >
+                            EDITAR
+                        </KamiButton>
+                        <KamiButton
+                            size="sm"
+                            to="/fichas"
+                        >
+                            FICHAS
+                        </KamiButton>
+                    </div>
+                </header>
+
+                <KamiSheetView
+                    :name="name"
+                    :attributes="previewAttributes"
+                    :layout="previewLayout"
+                    view-mode="documento"
+                    :show-toggle="false"
+                />
+            </div>
+
+            <header
+                v-if="!isReading"
+                class="site-editor__topo"
+            >
                 <div class="site-editor__topo-linha">
                     <div class="site-editor__topo-identidade">
                         <NuxtLink
@@ -2732,12 +2812,11 @@ export default defineNuxtComponent({
                         class="site-editor__topo-acoes"
                     >
                         <KamiButton
-                            v-if="mode !== 'estrutura'"
                             size="sm"
-                            :aria-pressed="previewOpen"
-                            @click="togglePreview"
+                            title="Visualizar ficha (Ctrl+Shift+V)"
+                            @click="enterReading"
                         >
-                            {{ previewOpen ? 'FECHAR PRÉVIA' : 'PRÉVIA' }}
+                            VISUALIZAR
                         </KamiButton>
                         <KamiButton
                             v-if="hasChanges"
@@ -2774,7 +2853,7 @@ export default defineNuxtComponent({
             </header>
 
             <KamiPanel
-                v-if="sheet.isLive"
+                v-if="!isReading && sheet.isLive"
                 label="SOMENTE LEITURA"
                 code="IRT"
             >
@@ -2789,7 +2868,7 @@ export default defineNuxtComponent({
                 />
             </KamiPanel>
 
-            <template v-else>
+            <template v-else-if="!isReading">
                 <div
                     v-if="conflict || liveBlocked"
                     ref="alertBanner"
@@ -4250,51 +4329,6 @@ export default defineNuxtComponent({
                     </section>
 
                     <div
-                        v-if="previewOpen"
-                        class="site-editor__preview-fundo"
-                        @click="previewOpen = false"
-                    ></div>
-                    <div
-                        v-if="previewOpen"
-                        ref="previewDialog"
-                        class="site-editor__preview"
-                        role="dialog"
-                        aria-modal="true"
-                        aria-label="Prévia da ficha"
-                        tabindex="-1"
-                        @keydown="handleDialogKeydown('preview', $event)"
-                    >
-                        <div class="site-editor__preview-topo">
-                            <p class="site-eyebrow">PRÉVIA · MODO DOCUMENTO</p>
-                            <button
-                                type="button"
-                                class="site-editor__preview-fechar"
-                                @click="previewOpen = false"
-                            >
-                                FECHAR
-                            </button>
-                        </div>
-                        <div class="site-editor__preview-documento">
-                            <KamiSheetView
-                                :name="name"
-                                :attributes="previewAttributes"
-                                :layout="previewLayout"
-                                view-mode="documento"
-                                :show-toggle="false"
-                                adjustable
-                                @adjust-bar="adjustBar"
-                                @adjust-quantity="handleAdjustQuantity"
-                                @add-list-item="handleAddListItem"
-                                @remove-list-item="handleRemoveListItem"
-                                @move-list-item="handleMoveListItem"
-                                @update-list-name="handleUpdateListItemName"
-                                @update-description="handleUpdateDescription"
-                                @toggle-status="handleToggleStatus"
-                            />
-                        </div>
-                    </div>
-
-                    <div
                         v-if="settingsOpen"
                         class="site-editor__config-fundo"
                         @click="closeSettings"
@@ -4565,7 +4599,7 @@ export default defineNuxtComponent({
                 </div>
 
                 <div
-                    v-if="!sheet.isLive"
+                    v-if="!sheet.isLive && !isReading"
                     class="site-editor__acoes-fixas"
                     role="group"
                     aria-label="Ações da ficha"
@@ -4591,12 +4625,10 @@ export default defineNuxtComponent({
                         />
                     </KamiButton>
                     <KamiButton
-                        v-if="mode !== 'estrutura'"
                         size="sm"
-                        :aria-pressed="previewOpen"
-                        aria-label="Prévia da ficha"
-                        title="Prévia da ficha"
-                        @click="togglePreview"
+                        aria-label="Visualizar ficha"
+                        title="Visualizar ficha (Ctrl+Shift+V)"
+                        @click="enterReading"
                     >
                         <KamiIcon
                             name="eye"
