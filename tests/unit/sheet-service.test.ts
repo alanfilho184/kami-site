@@ -17,7 +17,9 @@ const emptyInfo = { sections: [{ name: 'Info', type: 0, position: 0, attributes:
 function createRow(overrides: Partial<SheetRow> = {}): SheetRow {
     return {
         id: 7,
+        user_id: 42,
         sheet_name: 'Lyra Voss',
+        sheet_password: null,
         is_public: false,
         legacy: false,
         attributes: { sections: [] },
@@ -35,6 +37,7 @@ interface ServiceDependencies {
     insertSheet: ReturnType<typeof vi.fn>;
     updateSheetRecord: ReturnType<typeof vi.fn>;
     renameSheetRecord: ReturnType<typeof vi.fn>;
+    updateSheetSharingRecord: ReturnType<typeof vi.fn>;
     deleteSheetRecord: ReturnType<typeof vi.fn>;
 }
 
@@ -45,6 +48,7 @@ function createService() {
         insertSheet: vi.fn(),
         updateSheetRecord: vi.fn(),
         renameSheetRecord: vi.fn(),
+        updateSheetSharingRecord: vi.fn(),
         deleteSheetRecord: vi.fn()
     };
     const service = createSheetService(deps);
@@ -71,7 +75,10 @@ describe('serviço de fichas', () => {
 
         expect(detail).toMatchObject({
             id: 7,
+            userId: 42,
             name: 'Lyra Voss',
+            isPublic: false,
+            hasPassword: false,
             isLegacy: true,
             isLive: false,
             version,
@@ -225,6 +232,72 @@ describe('serviço de fichas', () => {
         expect(detail.layout).toEqual({
             sections: { Info: { columns: 2, attributes: { Nível: { span: 2, rows: 1 } }, span: 12 } }
         });
+    });
+
+    it('updateSheetSharing publica mantendo a senha atual quando ela é omitida', async () => {
+        const { service, deps } = createService();
+        const storedHash = '$2b$12$senhaantiga';
+        deps.findSheet.mockResolvedValue(createRow({ sheet_password: storedHash }));
+        deps.updateSheetSharingRecord.mockResolvedValue(createRow({ is_public: true, sheet_password: storedHash }));
+
+        const detail = await service.updateSheetSharing(42, 7, { version, isPublic: true });
+
+        expect(deps.updateSheetSharingRecord).toHaveBeenCalledWith(42, 7, {
+            isPublic: true,
+            password: storedHash,
+            version
+        });
+        expect(detail.isPublic).toBe(true);
+        expect(detail.hasPassword).toBe(true);
+    });
+
+    it('updateSheetSharing grava uma senha nova em bcrypt', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow());
+        deps.updateSheetSharingRecord.mockResolvedValue(createRow({ is_public: true, sheet_password: 'hash' }));
+
+        await service.updateSheetSharing(42, 7, { version, isPublic: true, password: 'segredo' });
+
+        const call = deps.updateSheetSharingRecord.mock.calls[0];
+
+        expect(call?.[0]).toBe(42);
+        expect(call?.[1]).toBe(7);
+        expect(call?.[2]).toMatchObject({ isPublic: true, version });
+        expect(call?.[2].password).toMatch(/^\$2[aby]\$12\$/);
+        expect(call?.[2].password).not.toBe('segredo');
+    });
+
+    it('updateSheetSharing remove a senha quando recebe null', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow({ sheet_password: 'hash-antigo' }));
+        deps.updateSheetSharingRecord.mockResolvedValue(createRow({ is_public: true, sheet_password: null }));
+
+        const detail = await service.updateSheetSharing(42, 7, { version, isPublic: true, password: null });
+
+        expect(deps.updateSheetSharingRecord).toHaveBeenCalledWith(42, 7, {
+            isPublic: true,
+            password: null,
+            version
+        });
+        expect(detail.hasPassword).toBe(false);
+    });
+
+    it('updateSheetSharing bloqueia ficha ao vivo', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow({ is_live: true }));
+
+        await expect(service.updateSheetSharing(42, 7, { version, isPublic: true })).rejects.toThrow(SheetLiveError);
+        expect(deps.updateSheetSharingRecord).not.toHaveBeenCalled();
+    });
+
+    it('updateSheetSharing sinaliza conflito quando a versão não corresponde', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow());
+        deps.updateSheetSharingRecord.mockResolvedValue(null);
+
+        await expect(service.updateSheetSharing(42, 7, { version, isPublic: true })).rejects.toThrow(
+            SheetConflictError
+        );
     });
 
     it('deleteSheet bloquea ficha ao vivo', async () => {

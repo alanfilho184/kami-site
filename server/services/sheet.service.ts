@@ -1,6 +1,13 @@
 import type { QueryResultRow } from 'pg';
+import { hash as hashBcrypt } from 'bcryptjs';
 import SQL from 'sql-template-strings';
-import type { SheetAttributes, SheetDetail, SheetRenameInput, SheetUpdateInput } from '~~/shared/types/sheet';
+import type {
+    SheetAttributes,
+    SheetDetail,
+    SheetRenameInput,
+    SheetSharingInput,
+    SheetUpdateInput
+} from '~~/shared/types/sheet';
 import {
     createEmptySheetAttributes,
     normalizeSheetAttributes,
@@ -18,7 +25,9 @@ import {
 
 export interface SheetRow extends QueryResultRow {
     id: number;
+    user_id: number;
     sheet_name: string;
+    sheet_password: string | null;
     is_public: boolean;
     legacy: boolean;
     attributes: unknown;
@@ -44,6 +53,12 @@ export interface RenameSheetRecordInput {
     version: string;
 }
 
+export interface UpdateSheetSharingRecordInput {
+    isPublic: boolean;
+    password: string | null;
+    version: string;
+}
+
 export interface SheetDependencies {
     findSheet: (userId: number, sheetId: number) => Promise<SheetRow | null>;
     findSheetName: (userId: number, name: string, excludeSheetId: number) => Promise<ExistingSheetRow | null>;
@@ -57,6 +72,11 @@ export interface SheetDependencies {
     ) => Promise<SheetRow | null>;
     updateSheetRecord: (userId: number, sheetId: number, input: UpdateSheetRecordInput) => Promise<SheetRow | null>;
     renameSheetRecord: (userId: number, sheetId: number, input: RenameSheetRecordInput) => Promise<SheetRow | null>;
+    updateSheetSharingRecord: (
+        userId: number,
+        sheetId: number,
+        input: UpdateSheetSharingRecordInput
+    ) => Promise<SheetRow | null>;
     deleteSheetRecord: (userId: number, sheetId: number, version: string) => Promise<number | null>;
 }
 
@@ -72,14 +92,16 @@ function toIso(value: Date | string): string {
     return date.toISOString();
 }
 
-function toDetail(row: SheetRow): SheetDetail {
+export function toDetail(row: SheetRow): SheetDetail {
     const isLegacy = Boolean(row.legacy);
     const attributes = normalizeSheetAttributes(row.attributes, isLegacy);
 
     return {
         id: row.id,
+        userId: row.user_id,
         name: row.sheet_name,
         isPublic: Boolean(row.is_public),
+        hasPassword: Boolean(row.sheet_password && row.sheet_password.length > 0),
         isLegacy,
         isLive: Boolean(row.is_live),
         version: toIso(row.last_use),
@@ -129,7 +151,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
             queryOne<SheetRow>(SQL`
                 SELECT
                     s.id,
+                    s.user_id,
                     s.sheet_name,
+                    s.sheet_password,
                     s.is_public,
                     s.legacy,
                     s.attributes,
@@ -169,7 +193,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                 )
                 RETURNING
                     id,
+                    user_id,
                     sheet_name,
+                    sheet_password,
                     is_public,
                     legacy,
                     attributes,
@@ -197,7 +223,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                   AND date_trunc('milliseconds', s.last_use) = ${input.version}::timestamptz
                 RETURNING
                     s.id,
+                    s.user_id,
                     s.sheet_name,
+                    s.sheet_password,
                     s.is_public,
                     s.legacy,
                     s.attributes,
@@ -222,7 +250,37 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                   AND date_trunc('milliseconds', s.last_use) = ${input.version}::timestamptz
                 RETURNING
                     s.id,
+                    s.user_id,
                     s.sheet_name,
+                    s.sheet_password,
+                    s.is_public,
+                    s.legacy,
+                    s.attributes,
+                    s.sheet_layout,
+                    date_trunc('milliseconds', s.last_use) AS last_use,
+                    s.created_at,
+                    EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id) AS is_live
+            `));
+    const updateSheetSharingRecord =
+        dependencies.updateSheetSharingRecord ??
+        ((userId: number, sheetId: number, input: UpdateSheetSharingRecordInput) =>
+            queryOne<SheetRow>(SQL`
+                UPDATE sheets s
+                SET is_public = ${input.isPublic},
+                    sheet_password = ${input.password},
+                    last_use = GREATEST(
+                        date_trunc('milliseconds', now()),
+                        date_trunc('milliseconds', s.last_use) + interval '1 millisecond'
+                    )
+                WHERE s.id = ${sheetId}
+                  AND s.user_id = ${userId}
+                  AND NOT EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id)
+                  AND date_trunc('milliseconds', s.last_use) = ${input.version}::timestamptz
+                RETURNING
+                    s.id,
+                    s.user_id,
+                    s.sheet_name,
+                    s.sheet_password,
                     s.is_public,
                     s.legacy,
                     s.attributes,
@@ -356,6 +414,31 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         return toDetail(row);
     }
 
+    async function updateSheetSharing(userId: number, sheetId: number, input: SheetSharingInput): Promise<SheetDetail> {
+        const current = await requireEditable(userId, sheetId);
+        let password: string | null;
+
+        if (input.password === undefined) {
+            password = current.sheet_password;
+        } else if (input.password === null || input.password.length === 0) {
+            password = null;
+        } else {
+            password = await hashBcrypt(input.password, 12);
+        }
+
+        const row = await updateSheetSharingRecord(userId, sheetId, {
+            isPublic: input.isPublic,
+            password,
+            version: input.version
+        });
+
+        if (!row) {
+            return diagnoseWriteFailure(userId, sheetId);
+        }
+
+        return toDetail(row);
+    }
+
     async function deleteSheet(userId: number, sheetId: number, version: string): Promise<void> {
         await requireEditable(userId, sheetId);
 
@@ -386,7 +469,7 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         return toDetail(row);
     }
 
-    return { getSheet, createSheet, updateSheet, renameSheet, deleteSheet, duplicateSheet };
+    return { getSheet, createSheet, updateSheet, renameSheet, updateSheetSharing, deleteSheet, duplicateSheet };
 }
 
 export const sheetService = createSheetService();

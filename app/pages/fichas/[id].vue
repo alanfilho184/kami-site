@@ -709,6 +709,12 @@ export default defineNuxtComponent({
             barSettingsAttribute: null as SheetAttribute | null,
             isMobileViewport: false,
             readingScrollY: 0,
+            sharingPublic: false,
+            sharingPassword: '',
+            sharingRemovePassword: false,
+            sharingSaving: false,
+            sharingError: '',
+            sharingNotice: '',
             expandedLists: [] as SheetAttribute[],
             dragSectionIndex: null as number | null,
             dragOverSectionIndex: null as number | null,
@@ -1201,10 +1207,66 @@ export default defineNuxtComponent({
             this.settingsOpen = true;
             this.barSettingsAttribute = null;
             this.showDeleteConfirm = false;
+            this.sharingPublic = this.sheet?.isPublic ?? false;
+            this.sharingPassword = '';
+            this.sharingRemovePassword = false;
+            this.sharingError = '';
+            this.sharingNotice = '';
         },
         closeSettings(): void {
             this.settingsOpen = false;
             this.showDeleteConfirm = false;
+        },
+        async saveSharing(): Promise<void> {
+            if (!this.sheet || this.sharingSaving) {
+                return;
+            }
+
+            this.sharingSaving = true;
+            this.sharingError = '';
+            this.sharingNotice = '';
+
+            const body: { version: string; isPublic: boolean; password?: string | null } = {
+                version: this.sheet.version,
+                isPublic: this.sharingPublic
+            };
+
+            if (this.sharingRemovePassword) {
+                body.password = null;
+            } else if (this.sharingPassword.trim()) {
+                body.password = this.sharingPassword.trim();
+            }
+
+            try {
+                const updated = await $fetch<SheetDetail>(`/api/fichas/${this.sheet.id}/publicacao`, {
+                    method: 'PATCH',
+                    body
+                });
+
+                this.sheet = updated;
+                this.sharingPassword = '';
+                this.sharingRemovePassword = false;
+                this.sharingNotice = updated.isPublic ? 'FICHA PÚBLICA ATUALIZADA.' : 'FICHA PRIVADA.';
+            } catch (error) {
+                this.sharingError =
+                    serverErrorMessage(error) ?? 'Não foi possível salvar o compartilhamento. Tente novamente.';
+            } finally {
+                this.sharingSaving = false;
+            }
+        },
+        async copyPublicLink(): Promise<void> {
+            if (!this.sheet?.isPublic) {
+                return;
+            }
+
+            const url = `${window.location.origin}/ficha/${this.sheet.userId}/${encodeURIComponent(this.sheet.name)}`;
+
+            try {
+                await navigator.clipboard.writeText(url);
+                this.sharingNotice = 'LINK COPIADO.';
+            } catch {
+                this.sharingError = 'Não foi possível copiar o link.';
+            }
         },
         setMode(mode: EditorMode): void {
             this.mode = mode;
@@ -4359,6 +4421,73 @@ export default defineNuxtComponent({
                             >
                                 FECHAR
                             </KamiButton>
+                        </div>
+
+                        <div class="site-editor__config-secao">
+                            <h3 class="site-editor__config-secao-titulo">COMPARTILHAMENTO</h3>
+                            <p class="site-editor__config-texto">
+                                Uma ficha pública abre pelo link sem login. O link não aparece em buscadores.
+                            </p>
+                            <label class="site-editor__config-toggle">
+                                <input
+                                    v-model="sharingPublic"
+                                    type="checkbox"
+                                />
+                                <span>FICHA PÚBLICA</span>
+                            </label>
+                            <label class="site-editor__campo">
+                                <span class="site-editor__campo-rotulo">SENHA (OPCIONAL)</span>
+                                <input
+                                    v-model="sharingPassword"
+                                    class="kami-input"
+                                    type="password"
+                                    maxlength="64"
+                                    autocomplete="new-password"
+                                    :disabled="sharingRemovePassword"
+                                    :placeholder="sheet.hasPassword ? 'DEFINA UMA NOVA SENHA' : 'SEM SENHA'"
+                                />
+                            </label>
+                            <label
+                                v-if="sheet.hasPassword"
+                                class="site-editor__config-toggle"
+                            >
+                                <input
+                                    v-model="sharingRemovePassword"
+                                    type="checkbox"
+                                />
+                                <span>REMOVER SENHA ATUAL</span>
+                            </label>
+                            <p
+                                v-if="sharingError"
+                                class="site-editor__config-erro"
+                                role="alert"
+                            >
+                                {{ sharingError }}
+                            </p>
+                            <p
+                                v-if="sharingNotice"
+                                class="site-editor__config-ok"
+                                role="status"
+                            >
+                                {{ sharingNotice }}
+                            </p>
+                            <div class="site-editor__acoes">
+                                <KamiButton
+                                    variant="primary"
+                                    size="sm"
+                                    :disabled="sharingSaving"
+                                    @click="saveSharing"
+                                >
+                                    {{ sharingSaving ? 'SALVANDO...' : 'SALVAR COMPARTILHAMENTO' }}
+                                </KamiButton>
+                                <KamiButton
+                                    size="sm"
+                                    :disabled="!sheet.isPublic"
+                                    @click="copyPublicLink"
+                                >
+                                    COPIAR LINK
+                                </KamiButton>
+                            </div>
                         </div>
 
                         <div class="site-editor__config-secao">

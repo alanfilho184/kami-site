@@ -499,10 +499,20 @@ export const deleteSheetSchema = z.object({
     version: sheetVersionSchema
 });
 
+export const SHEET_PASSWORD_MIN_LENGTH = 4;
+export const SHEET_PASSWORD_MAX_LENGTH = 64;
+
+export const sheetSharingSchema = z.object({
+    version: sheetVersionSchema,
+    isPublic: z.boolean(),
+    password: z.string().min(SHEET_PASSWORD_MIN_LENGTH).max(SHEET_PASSWORD_MAX_LENGTH).nullish()
+});
+
 export type CreateSheetInput = z.infer<typeof createSheetSchema>;
 export type UpdateSheetInput = z.infer<typeof updateSheetSchema>;
 export type PatchSheetInput = z.infer<typeof patchSheetSchema>;
 export type DeleteSheetInput = z.infer<typeof deleteSheetSchema>;
+export type SheetSharingSchemaInput = z.infer<typeof sheetSharingSchema>;
 
 export function createEmptySheetAttributes(): SheetAttributes {
     return {

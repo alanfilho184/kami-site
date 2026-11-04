@@ -1354,26 +1354,71 @@
     max-width: 48ch;
 }
 
-/* --- Ficha em desenvolvimento -------------------------------------------- */
+/* --- Ficha pública -------------------------------------------------------- */
 
-.site-ficha-dev {
+.site-ficha-publica {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-6);
+    padding-block: clamp(32px, 6vw, 64px);
+}
+
+.site-ficha-publica__topo {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--kami-space-4);
+    flex-wrap: wrap;
+    padding-bottom: var(--kami-space-4);
+    border-bottom: var(--kami-border);
+}
+
+.site-ficha-publica__titulo {
+    margin: 0;
+    font-family: var(--kami-font-display);
+    font-size: clamp(28px, 4vw, 52px);
+    line-height: 1.05;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--kami-text);
+    overflow-wrap: anywhere;
+}
+
+.site-ficha-publica__texto {
+    max-width: 52ch;
+}
+
+.site-ficha-publica__acesso {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    justify-content: center;
-    gap: clamp(16px, 2.4vw, 24px);
-    min-height: 62vh;
-    padding-block: clamp(64px, 12vw, 140px);
+    gap: var(--kami-space-4);
+    max-width: 560px;
+    padding-block: clamp(48px, 10vw, 120px);
 }
 
-.site-ficha-dev__selo {
+.site-ficha-publica__form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-3);
+    width: 100%;
+    max-width: 360px;
+}
+
+.site-ficha-publica__erro {
+    margin: 0;
+    font-size: 14px;
+    color: var(--kami-danger);
+}
+
+.site-ficha-publica__rodape {
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
+    gap: var(--kami-space-3);
     flex-wrap: wrap;
-}
-
-.site-ficha-dev__meta {
+    padding-top: var(--kami-space-4);
+    border-top: var(--kami-border);
     font-family: var(--kami-font-mono);
     font-size: 10px;
     letter-spacing: 0.1em;
@@ -1381,34 +1426,10 @@
     color: var(--kami-text-dim);
 }
 
-.site-ficha-dev__titulo {
-    max-width: 20ch;
-    font-family: var(--kami-font-display);
-    font-size: clamp(40px, 9vw, 96px);
-    font-weight: 700;
-    line-height: 0.95;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: var(--kami-text);
-}
-
-.site-ficha-dev__texto {
-    max-width: 52ch;
-}
-
-.site-ficha-dev__acoes {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--kami-space-4);
-}
-
-.site-ficha-dev__nota {
-    max-width: 60ch;
-    font-family: var(--kami-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--kami-text-dim);
+@media (max-width: 720px) {
+    .site-ficha-publica__topo {
+        align-items: flex-start;
+    }
 }
 
 /* --- Autenticação e painel ------------------------------------------------ */
@@ -3788,6 +3809,34 @@
     font-size: 14px;
     line-height: 1.5;
     color: var(--kami-text-muted);
+}
+
+.site-editor__config-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--kami-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--kami-text-muted);
+    cursor: pointer;
+    user-select: none;
+}
+
+.site-editor__config-erro {
+    margin: 0;
+    font-size: 13px;
+    color: var(--kami-danger);
+}
+
+.site-editor__config-ok {
+    margin: 0;
+    font-family: var(--kami-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--kami-live);
 }
 
 @media (min-width: 901px) {

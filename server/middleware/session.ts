@@ -12,7 +12,8 @@ const noindexPrefixes = [
     '/ao-vivo',
     '/macros',
     '/configuracoes',
-    '/sair'
+    '/sair',
+    '/ficha'
 ];
 
 const sessionService = createSessionService();

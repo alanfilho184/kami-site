@@ -164,7 +164,6 @@ export function resetRegisterEmail(email: string): void {
 
 export const PASSWORD_CHANGE_LIMIT = 5;
 export const PASSWORD_CHANGE_WINDOW_MS = 15 * 60 * 1000;
-
 export const passwordChangeLimiter = createRateLimiter({
     limit: PASSWORD_CHANGE_LIMIT,
     windowMs: PASSWORD_CHANGE_WINDOW_MS
@@ -176,4 +175,16 @@ export function consumePasswordChange(userId: number): RateLimitResult {
 
 export function resetPasswordChange(userId: number): void {
     passwordChangeLimiter.reset(`user:${userId}`);
+}
+
+export const SHEET_ACCESS_LIMIT = 10;
+export const SHEET_ACCESS_WINDOW_MS = 15 * 60 * 1000;
+
+export const sheetAccessLimiter = createRateLimiter({
+    limit: SHEET_ACCESS_LIMIT,
+    windowMs: SHEET_ACCESS_WINDOW_MS
+});
+
+export function consumeSheetAccess(ip: string, sheetId: number): RateLimitResult {
+    return sheetAccessLimiter.consume(`sheet:${sheetId}:ip:${hashRateLimitKey(ip)}`);
 }

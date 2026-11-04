@@ -114,8 +114,10 @@ export interface SheetLayout {
 
 export interface SheetDetail {
     id: number;
+    userId: number;
     name: string;
     isPublic: boolean;
+    hasPassword: boolean;
     isLegacy: boolean;
     isLive: boolean;
     version: string;
@@ -145,7 +147,15 @@ export interface SheetDeleteInput {
     version: string;
 }
 
+export interface SheetSharingInput {
+    version: string;
+    isPublic: boolean;
+    /** `undefined` mantém a senha atual; `null` ou vazio remove. */
+    password?: string | null;
+}
+
 export interface SheetErrorResponse {
     message: string;
-    code?: 'invalid_sheet' | 'sheet_not_found' | 'sheet_conflict' | 'sheet_name_taken' | 'sheet_live';
+    code?:
+        'invalid_sheet' | 'invalid_password' | 'sheet_not_found' | 'sheet_conflict' | 'sheet_name_taken' | 'sheet_live';
 }

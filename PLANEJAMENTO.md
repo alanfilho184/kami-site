@@ -263,25 +263,25 @@ posterior; a D2.1 já permite que novos usuários criem conta no site.
 
 ## 6. Entregas
 
-| Entrega | Tema                             | Versão          | Estado              |
-| ------- | -------------------------------- | --------------- | ------------------- |
-| D0      | Fundação técnica e deploy        | `0.1.0`         | Concluída           |
-| D1      | Landing, estatísticas e jurídico | `6.0.0`         | Em produção         |
-| D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev    |
-| D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev    |
-| D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev    |
-| D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev    |
-| D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev    |
-| D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev    |
-| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev    |
-| D4      | Fichas públicas                  | `6.2.0` (dev)   | Em andamento no dev |
-| D4.1    | Modo leitura do dono             | `6.2.0` (dev)   | Concluída no dev    |
-| D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0     |
-| D6      | Tutoriais                        | —               | Fora desta versão   |
+| Entrega | Tema                             | Versão          | Estado            |
+| ------- | -------------------------------- | --------------- | ----------------- |
+| D0      | Fundação técnica e deploy        | `0.1.0`         | Concluída         |
+| D1      | Landing, estatísticas e jurídico | `6.0.0`         | Em produção       |
+| D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev  |
+| D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev  |
+| D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev  |
+| D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev  |
+| D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev  |
+| D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev  |
+| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev  |
+| D4      | Fichas públicas                  | `6.2.0` (dev)   | Concluída no dev  |
+| D4.1    | Modo leitura do dono             | `6.2.0` (dev)   | Concluída no dev  |
+| D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0   |
+| D6      | Tutoriais                        | —               | Fora desta versão |
 
-A versão de desenvolvimento é `6.2.0`; a produção continua `6.0.0`. A D3 está
-concluída no desenvolvimento e o release `6.2.0` fica pendente de migração no
-`kami_prod`, revisão jurídica e promoção. D2, D2.1, D2.2 e D3 são commits dentro
+A versão de desenvolvimento é `6.2.0`; a produção continua `6.0.0`. A D3 e a D4
+estão concluídas no desenvolvimento e o release `6.2.0` fica pendente de migração no
+`kami_prod`, revisão jurídica e promoção. D2, D2.1, D2.2, D3 e D4 são commits dentro
 da 6.2.0; não há bump de versão por entrega. A D0 fica registrada como `0.1.0`,
 o histórico da primeira fundação do site.
 
@@ -671,6 +671,8 @@ Resultado em 03/11/2026:
 
 **Objetivo:** compartilhar fichas por link, com privacidade controlada.
 
+**Estado:** concluída no desenvolvimento em 04/11/2026, dentro da `6.2.0`.
+
 Escopo:
 
 - preservar `/ficha/:userId/:sheetName`;
@@ -691,6 +693,16 @@ Aceite:
 - senha errada não permite acesso e é limitada;
 - ficha pública não aparece em buscadores;
 - URL antiga continua funcionando.
+
+Resultado em 04/11/2026:
+
+- `GET /api/ficha/:userId/:sheetName` responde `404` para ficha inexistente ou privada e `401` (`sheet_password_required`) quando falta o cookie de acesso; a página `/ficha/:userId/:sheetName` renderiza o formulário de senha nesse caso;
+- `POST /api/ficha/:userId/:sheetName/acesso` valida a senha (bcrypt novo ou texto puro legado) com rate limit de 10 tentativas por 15 minutos por IP e ficha, e grava o cookie `kami_ficha_<id>` assinado por HMAC com `SESSION_SECRET`, `HttpOnly`, `SameSite=Lax`, TTL de 1 hora;
+- `PATCH /api/fichas/:id/publicacao` recebe `{ version, isPublic, password? }`; `password` omitido mantém a senha, `null` remove e um valor novo é gravado em bcrypt (custo 12); a seção `COMPARTILHAMENTO` do modal `CONFIGURAÇÕES` controla isso e copia o link;
+- a ficha pública reutiliza o `KamiSheetView` em modo documento, sem controles de edição, com `noindex, nofollow`, `X-Robots-Tag` e `Cache-Control: private, no-store`;
+- busca pública escolhe a ficha pública mais recente quando há nomes duplicados históricos e nunca revela fichas privadas;
+- o rehash de senha legada em acesso bem-sucedido continua pendente de autorização de escrita do bot;
+- 20 testes unitários novos (senha bcrypt/legado, token/cookie, compartilhamento e schema) e 3 E2E novos (privada 404, senha com cookie e modal); a suíte fechou com 157 unitários e 57 E2E aprovados + 1 skip no build de produção.
 
 ### D4.1 - Modo leitura do dono
 
@@ -1048,7 +1060,7 @@ date_trunc('milliseconds', last_use) = $3`; se 0 linhas, `409` com opção de re
 | `/dashboard`                           | `302` → `/painel`                                |
 | `/fichas`                              | Lista do usuário (D3)                            |
 | `/fichas/:id`                          | Editor (D3)                                      |
-| `/ficha`, `/ficha/:userId/:sheetName`  | Aviso de ficha pública em desenvolvimento (D4)   |
+| `/ficha`, `/ficha/:userId/:sheetName`  | Ficha pública somente leitura (D4)               |
 | `/configuracoes`                       | Conta (D2/D5)                                    |
 | `/comandos`                            | `410 Gone`, com explicação e link para o Discord |
 | `/convite`                             | `302` → convite do bot                           |
@@ -1182,10 +1194,10 @@ Cloudflare (DNS + proxy + health check / failover)
 - Cada entrega atualiza este documento (estado, decisões e pendências).
 - Nenhuma entrega é considerada pronta sem build, testes e verificação manual do fluxo.
 
-## 20. Próximos passos imediatos (release 6.2.0 e D4)
+## 20. Próximos passos imediatos (release 6.2.0)
 
-1. Concluir a D4: link público em `/ficha/:userId/:sheetName`, `is_public`, senha opcional e cookie de acesso.
-2. Reaproveitar o modo leitura (D4.1) no render público, sempre com `noindex`.
+1. Revisar a D4 de ponta a ponta: link público, senha, cookie de acesso, `noindex` e controles do dono.
+2. Manter o modo leitura (D4.1) e o render público usando o mesmo `KamiSheetView`, sempre com `noindex`.
 3. Aplicar as migrations no `kami_prod` com a role de migration e validar o `db:diff`.
 4. Fechar a revisão jurídica do texto de conta e cookies.
 5. Promover a `6.2.0` (D2, D2.1, D2.2, D3 e D4) para `beta`/`main`, com smoke autenticado.
@@ -1220,3 +1232,7 @@ Cloudflare (DNS + proxy + health check / failover)
 | 31/10/2026 | Limites reais do backend do bot (32/20/32/1024)                   | Evita ficha que o bot rejeita; a documentação anterior dizia 256    |
 | 31/10/2026 | Duplicar cria ficha privada, sem senha e sem IRT                  | Evita expor conteúdo ou herdar vínculo ao copiar                    |
 | 31/10/2026 | Ficha legacy converte na leitura e grava formato novo no 1º save  | Migração preguiçosa, sem alterar dados antigos sem ação do usuário  |
+| 04/11/2026 | Ficha pública com `401` para senha e `404` para privada           | Não revela a existência de ficha privada a quem não tem o link      |
+| 04/11/2026 | Cookie de acesso por ficha assinado por HMAC                      | Libera a senha por 1 hora sem criar sessão de conta nem JWT         |
+| 04/11/2026 | Senha nova em bcrypt; legado em texto puro só para leitura        | Compatibilidade com o bot sem reescrever senhas sem autorização     |
+| 04/11/2026 | Ficha pública sempre `noindex` e fora do sitemap                  | Compartilhamento por link direto, não por busca                     |

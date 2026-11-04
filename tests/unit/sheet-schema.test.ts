@@ -8,6 +8,7 @@ import {
     patchSheetSchema,
     sheetAttributesSchema,
     sheetNameSchema,
+    sheetSharingSchema,
     sheetVersionSchema
 } from '../../server/schemas/sheet';
 
@@ -1036,5 +1037,23 @@ describe('seção de tabela', () => {
                 ['x'.repeat(128), '']
             ]
         });
+    });
+});
+
+describe('compartilhamento da ficha', () => {
+    it('aceita publicar sem senha, com senha nova ou removendo a senha', () => {
+        expect(sheetSharingSchema.safeParse({ version, isPublic: true }).success).toBe(true);
+        expect(sheetSharingSchema.safeParse({ version, isPublic: true, password: 'abcd' }).success).toBe(true);
+        expect(sheetSharingSchema.safeParse({ version, isPublic: false, password: null }).success).toBe(true);
+    });
+
+    it('recusa senha curta ou longa demais', () => {
+        expect(sheetSharingSchema.safeParse({ version, isPublic: true, password: 'abc' }).success).toBe(false);
+        expect(sheetSharingSchema.safeParse({ version, isPublic: true, password: 'a'.repeat(65) }).success).toBe(false);
+    });
+
+    it('exige versão e isPublic', () => {
+        expect(sheetSharingSchema.safeParse({ isPublic: true }).success).toBe(false);
+        expect(sheetSharingSchema.safeParse({ version }).success).toBe(false);
     });
 });

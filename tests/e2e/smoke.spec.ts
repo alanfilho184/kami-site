@@ -224,15 +224,11 @@ test('as páginas jurídicas em PT-BR e EN-US respondem', async ({ page }) => {
     }
 });
 
-test('a rota de ficha mostra o aviso de desenvolvimento', async ({ page }) => {
+test('a rota de ficha responde 404 para ficha inexistente ou privada', async ({ page }) => {
     for (const route of ['/ficha', '/ficha/123/lyra-voss']) {
         const response = await page.goto(route);
 
-        expect(response?.status()).toBe(200);
-        await expect(page.getByRole('heading', { level: 1 })).toContainText('Em desenvolvimento.');
-        await expect(page.locator('.site-ficha-dev__selo')).toContainText('EM DESENVOLVIMENTO');
-        await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
-        await expect(page.getByRole('link', { name: 'VER A FICHA DE AMOSTRA' })).toBeVisible();
+        expect(response?.status()).toBe(404);
     }
 });
 
