@@ -702,7 +702,7 @@ Resultado em 04/11/2026:
 - a ficha pública reutiliza o `KamiSheetView` em modo documento, sem controles de edição, com `noindex, nofollow`, `X-Robots-Tag` e `Cache-Control: private, no-store`;
 - busca pública escolhe a ficha pública mais recente quando há nomes duplicados históricos e nunca revela fichas privadas;
 - o rehash de senha legada em acesso bem-sucedido continua pendente de autorização de escrita do bot;
-- 20 testes unitários novos (senha bcrypt/legado, token/cookie, compartilhamento e schema) e 3 E2E novos (privada 404, senha com cookie e modal); a suíte fechou com 157 unitários e 57 E2E aprovados + 1 skip no build de produção.
+- 20 testes unitários novos (senha bcrypt/legado, token/cookie, compartilhamento e schema) e 3 E2E novos da D4 (privada 404, senha com cookie e modal); a suíte fechou com 157 unitários e 58 E2E aprovados + 1 skip no build de produção.
 
 ### D4.1 - Modo leitura do dono
 
@@ -713,16 +713,18 @@ Resultado em 04/11/2026:
 Escopo:
 
 - o editor alterna para leitura por `?ver=1` na mesma rota `/fichas/:id`, sem recarregar e sem perder o rascunho;
-- a leitura renderiza o `KamiSheetView` no modo documento, sem sidebar, header de edição, inspetor, barra de ações ou controles (`adjustable` desligado);
-- cabeçalho enxuto com nome da ficha, aviso de alterações não salvas e botões `EDITAR` e `FICHAS`;
+- a leitura renderiza o `KamiSheetView` no modo documento, sem sidebar, header de edição, inspetor ou barra de ações; os atalhos do próprio componente (`adjustable`) ficam ligados para o dono;
+- os atalhos de barra (passo), lista (editar, quantidade, adicionar, remover e mover), descrição (editar) e status (alternar) editam direto na leitura e disparam salvamento automático com debounce;
+- cabeçalho enxuto com nome da ficha, aviso de alterações não salvas, estado do salvamento automático e botões `EDITAR` e `FICHAS`;
 - atalho `Ctrl+Shift+V` alterna leitura/edição (ignorado enquanto o foco está em campo de texto, para não roubar o colar sem formatação); `Esc` sai da leitura;
 - a prévia em modal foi substituída por esse modo, que usa o mesmo rascunho e preserva a rolagem ao voltar;
-- o link público, senha e controle de privacidade continuam pendentes na D4.
+- o link público, senha e controle de privacidade foram concluídos na D4.
 
 Aceite:
 
 - entrar na leitura mostra alterações não salvas e sair mantém o rascunho no editor;
-- o modo leitura não exibe tipo/largura de seção nem controles de edição;
+- o modo leitura não exibe tipo/largura de seção, sidebar, inspetor ou barra de ações; os únicos controles são os atalhos de edição do `KamiSheetView`;
+- os atalhos salvam a ficha automaticamente e mostram erro de conflito/validação no cabeçalho da leitura;
 - o atalho funciona no desktop e a barra inferior mobile some na leitura;
 - a URL com `?ver=1` abre direto no modo leitura.
 
@@ -730,6 +732,11 @@ Resultado em 04/11/2026:
 
 - 1 E2E novo de rascunho + atalho e a checagem do modo leitura no E2E mobile;
 - 137 testes unitários e 54 E2E no build de produção (53 anteriores + 1 novo, 1 skip).
+
+Revisão em 04/11/2026:
+
+- atalhos de barra, lista, descrição e status ligados no modo leitura do dono, com salvamento automático (debounce de 700 ms) e flush ao sair da leitura;
+- 1 E2E novo cobre barra, lista, descrição e status com persistência após recarregar; a suíte fechou com 157 unitários e 58 E2E aprovados + 1 skip.
 
 ### D5 - Tempo real, sincronização e hardening
 

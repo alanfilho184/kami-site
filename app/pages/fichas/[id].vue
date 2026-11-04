@@ -709,6 +709,11 @@ export default defineNuxtComponent({
             barSettingsAttribute: null as SheetAttribute | null,
             isMobileViewport: false,
             readingScrollY: 0,
+            readingSaveTimer: null as number | null,
+            readingSaveQueued: false,
+            readingSaveStatus: '',
+            readingSaveError: '',
+            readingDirty: false,
             sharingPublic: false,
             sharingPassword: '',
             sharingRemovePassword: false,
@@ -960,6 +965,7 @@ export default defineNuxtComponent({
         window.addEventListener('resize', this.updateViewport);
     },
     beforeUnmount() {
+        this.cancelReadingSave();
         window.removeEventListener('beforeunload', this.handleBeforeUnload);
         window.removeEventListener('keydown', this.handleKeydown);
         window.removeEventListener('resize', this.updateViewport);
@@ -1014,6 +1020,7 @@ export default defineNuxtComponent({
 
             bar.actual = Math.min(bar.max, Math.max(bar.min, bar.actual + payload.delta * step));
             this.clearMessages();
+            this.queueReadingSave();
         },
         handleAdjustQuantity(payload: { section: number; attribute: number; index: number; delta: number }): void {
             const attribute = this.sections[payload.section]?.attributes[payload.attribute];
@@ -1033,6 +1040,7 @@ export default defineNuxtComponent({
 
             item.quantity = String(next).slice(0, 32);
             this.clearMessages();
+            this.queueReadingSave();
         },
         handleAddListItem(payload: { section: number; attribute: number }): void {
             const attribute = this.sections[payload.section]?.attributes[payload.attribute];
@@ -1049,6 +1057,7 @@ export default defineNuxtComponent({
 
             list.items.push({ name: 'Novo item', quantity: '1' });
             this.clearMessages();
+            this.queueReadingSave();
         },
         handleRemoveListItem(payload: { section: number; attribute: number; index: number }): void {
             const attribute = this.sections[payload.section]?.attributes[payload.attribute];
@@ -1059,6 +1068,7 @@ export default defineNuxtComponent({
 
             this.asList(attribute.value).items.splice(payload.index, 1);
             this.clearMessages();
+            this.queueReadingSave();
         },
         handleMoveListItem(payload: { section: number; attribute: number; from: number; to: number }): void {
             const attribute = this.sections[payload.section]?.attributes[payload.attribute];
@@ -1076,6 +1086,7 @@ export default defineNuxtComponent({
 
             items.splice(Math.max(0, Math.min(payload.to, items.length)), 0, item);
             this.clearMessages();
+            this.queueReadingSave();
         },
         handleUpdateListItemName(payload: { section: number; attribute: number; index: number; value: string }): void {
             const attribute = this.sections[payload.section]?.attributes[payload.attribute];
@@ -1092,6 +1103,7 @@ export default defineNuxtComponent({
 
             item.name = payload.value;
             this.clearMessages();
+            this.queueReadingSave();
         },
         attributeTypeLabel(type: SheetAttributeType): string {
             return attributeTypeLabels[type] ?? 'TEXTO';
@@ -1169,6 +1181,11 @@ export default defineNuxtComponent({
                 return;
             }
 
+            this.cancelReadingSave();
+            this.readingSaveQueued = false;
+            this.readingDirty = false;
+            this.readingSaveStatus = '';
+            this.readingSaveError = '';
             this.settingsOpen = false;
             this.barSettingsAttribute = null;
             this.showDeleteConfirm = false;
@@ -1180,10 +1197,38 @@ export default defineNuxtComponent({
                 window.scrollTo({ top: 0 });
             });
         },
+        cancelReadingSave(): void {
+            if (this.readingSaveTimer !== null) {
+                window.clearTimeout(this.readingSaveTimer);
+                this.readingSaveTimer = null;
+            }
+        },
+        queueReadingSave(): void {
+            if (!this.isReading || this.isLive || this.liveBlocked || this.conflict) {
+                return;
+            }
+
+            this.readingDirty = true;
+            this.readingSaveError = '';
+            this.readingSaveStatus = '';
+            this.cancelReadingSave();
+            this.readingSaveTimer = window.setTimeout(() => {
+                this.readingSaveTimer = null;
+                void this.handleSave();
+            }, 700);
+        },
         exitReading(): void {
             if (!this.isReading) {
                 return;
             }
+
+            this.cancelReadingSave();
+
+            if (this.readingDirty && this.hasChanges && !this.isLive && !this.liveBlocked && !this.conflict) {
+                void this.handleSave();
+            }
+
+            this.readingDirty = false;
 
             const query = { ...this.$route.query };
 
@@ -1887,6 +1932,7 @@ export default defineNuxtComponent({
 
             item.active = !item.active;
             this.clearMessages();
+            this.queueReadingSave();
         },
         addTableRow(): void {
             const value = this.activeTableValue;
@@ -2051,6 +2097,7 @@ export default defineNuxtComponent({
             }
 
             this.clearMessages();
+            this.queueReadingSave();
         },
         attributePlainValue(attribute: SheetAttribute): string {
             if (attribute.type === 3) {
@@ -2561,19 +2608,49 @@ export default defineNuxtComponent({
             }
         },
         async handleSave(): Promise<void> {
-            if (!this.sheet || this.isLive || this.liveBlocked || this.isSaving) {
+            if (!this.sheet || this.isLive || this.liveBlocked) {
+                return;
+            }
+
+            if (this.isSaving) {
+                if (this.isReading) {
+                    this.readingSaveQueued = true;
+                }
+
+                return;
+            }
+
+            if (!this.hasChanges) {
+                if (this.isReading) {
+                    this.readingSaveStatus = '';
+                    this.readingSaveError = '';
+                }
+
                 return;
             }
 
             this.clearMessages();
+
+            if (this.isReading) {
+                this.readingSaveError = '';
+                this.readingSaveStatus = 'SALVANDO...';
+            }
+
             const validation = validateDraft(this.name, this.sections);
 
             if (validation) {
                 this.errorMessage = validation;
+
+                if (this.isReading) {
+                    this.readingSaveStatus = '';
+                    this.readingSaveError = validation;
+                }
+
                 return;
             }
 
             const draft = normalizeDraft(this.name, this.sections);
+            const draftSnapshot = serializeDraft(draft.name, draft.sections, this.layout);
             const activeIndex = this.activeSectionIndex;
             this.isSaving = true;
 
@@ -2588,9 +2665,19 @@ export default defineNuxtComponent({
                     }
                 });
 
-                this.initializeFromSheet(updated);
-                this.selectSection(activeIndex);
-                this.successMessage = 'FICHA SALVA.';
+                if (this.isReading) {
+                    this.sheet = updated;
+                    this.savedSnapshot = draftSnapshot;
+                    this.conflict = false;
+                    this.liveBlocked = false;
+                    this.readingSaveStatus = 'SALVO AUTOMATICAMENTE.';
+                    this.readingSaveError = '';
+                    this.readingDirty = false;
+                } else {
+                    this.initializeFromSheet(updated);
+                    this.selectSection(activeIndex);
+                    this.successMessage = 'FICHA SALVA.';
+                }
             } catch (error) {
                 const status = errorStatus(error);
                 const code = serverErrorCode(error);
@@ -2607,11 +2694,25 @@ export default defineNuxtComponent({
                     this.handleError(error, 'Não foi possível salvar a ficha.');
                 }
 
+                if (this.isReading) {
+                    this.readingSaveStatus = '';
+                    this.readingSaveError = this.errorMessage;
+                }
+
                 if (this.conflict || this.liveBlocked) {
                     this.focusAlert();
                 }
             } finally {
                 this.isSaving = false;
+
+                if (this.isReading) {
+                    if (this.readingSaveQueued && !this.conflict && !this.liveBlocked) {
+                        this.readingSaveQueued = false;
+                        this.queueReadingSave();
+                    } else {
+                        this.readingSaveQueued = false;
+                    }
+                }
             }
         },
         async reloadSheet(): Promise<void> {
@@ -2790,6 +2891,20 @@ export default defineNuxtComponent({
                         >
                             ALTERAÇÕES NÃO SALVAS · VISUALIZANDO O RASCUNHO
                         </p>
+                        <p
+                            v-if="readingSaveStatus"
+                            class="site-editor__leitura-status"
+                            role="status"
+                        >
+                            {{ readingSaveStatus }}
+                        </p>
+                        <p
+                            v-if="readingSaveError"
+                            class="site-editor__leitura-erro"
+                            role="alert"
+                        >
+                            {{ readingSaveError }}
+                        </p>
                     </div>
                     <div class="site-editor__leitura-acoes">
                         <KamiButton
@@ -2813,6 +2928,15 @@ export default defineNuxtComponent({
                     :layout="previewLayout"
                     view-mode="documento"
                     :show-toggle="false"
+                    :adjustable="!sheet.isLive"
+                    @adjust-bar="adjustBar"
+                    @adjust-quantity="handleAdjustQuantity"
+                    @add-list-item="handleAddListItem"
+                    @remove-list-item="handleRemoveListItem"
+                    @move-list-item="handleMoveListItem"
+                    @update-list-name="handleUpdateListItemName"
+                    @update-description="handleUpdateDescription"
+                    @toggle-status="handleToggleStatus"
                 />
             </div>
 

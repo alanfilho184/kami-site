@@ -37,6 +37,14 @@ async function deleteSheetThroughApi(page: Page, sheetId: number, version: strin
     expect(response.status()).toBe(204);
 }
 
+async function getSheetThroughApi(page: Page, sheetId: number): Promise<SheetDetail> {
+    const response = await page.request.get(`/api/fichas/${sheetId}`);
+
+    expect(response.status()).toBe(200);
+
+    return (await response.json()) as SheetDetail;
+}
+
 test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ page }) => {
     test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
 
@@ -164,7 +172,7 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     await expect(page.locator('.site-editor__leitura .site-sheetview__tipo')).toHaveCount(0);
     await expect(page.locator('.site-editor__leitura .site-sheetview__secao-largura')).toHaveCount(0);
     await expect(page).toHaveURL(/ver=1/);
-    await page.getByRole('button', { name: 'EDITAR', exact: true }).click();
+    await page.locator('.site-editor__leitura-acoes').getByRole('button', { name: 'EDITAR', exact: true }).click();
     await expect(page.locator('.site-editor__leitura')).toHaveCount(0);
     await expect(page.locator('.site-editor__topo')).toBeVisible();
 
@@ -201,6 +209,179 @@ test('o modo leitura preserva o rascunho e alterna pelo atalho', async ({ page }
         await expect(page.locator('#atributo-valor-0-0')).toHaveValue('Ainda não salvo.');
     } finally {
         await deleteSheetThroughApi(page, sheet.id, sheet.version);
+    }
+});
+
+test('o modo leitura do dono edita barra, lista, descrição e status com salvamento automático', async ({ page }) => {
+    test.setTimeout(90_000);
+    test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
+
+    const sheet = await createSheetThroughApi(page, uniqueSheetName());
+
+    try {
+        const saved = await page.request.patch(`/api/fichas/${sheet.id}`, {
+            data: {
+                name: sheet.name,
+                version: sheet.version,
+                attributes: {
+                    sections: [
+                        {
+                            name: 'Info',
+                            type: 0,
+                            position: 0,
+                            attributes: [
+                                {
+                                    name: 'Vida',
+                                    type: 4,
+                                    position: 0,
+                                    value: { actual: 5, max: 10, min: 0, step: 1 }
+                                }
+                            ]
+                        },
+                        {
+                            name: 'Inventário',
+                            type: 0,
+                            position: 1,
+                            attributes: [
+                                {
+                                    name: 'Itens',
+                                    type: 3,
+                                    position: 0,
+                                    value: { items: [{ name: 'Corda', quantity: '2' }] }
+                                }
+                            ]
+                        },
+                        {
+                            name: 'História',
+                            type: 1,
+                            position: 2,
+                            attributes: [{ name: 'Texto', type: 0, position: 0, value: 'Antes.' }]
+                        },
+                        {
+                            name: 'Condição',
+                            type: 3,
+                            position: 3,
+                            attributes: [
+                                {
+                                    name: 'Status',
+                                    type: 5,
+                                    position: 0,
+                                    value: {
+                                        items: [
+                                            {
+                                                id: 'st-1',
+                                                name: 'Ferido',
+                                                color: '#ff2b1d',
+                                                blink: false,
+                                                active: false
+                                            }
+                                        ]
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            headers: { origin: baseUrl }
+        });
+
+        expect(saved.status()).toBe(200);
+
+        await page.goto(`/fichas/${sheet.id}?ver=1`);
+        await waitForHydration(page);
+
+        const reading = page.locator('.site-editor__leitura');
+
+        await expect(reading).toBeVisible();
+
+        const info = reading.locator('.site-sheetview__secao').filter({ hasText: 'Info' });
+        const aumentarVida = info.getByRole('button', { name: 'Aumentar Vida' });
+
+        await expect(aumentarVida).toBeVisible();
+        await aumentarVida.click();
+
+        await expect
+            .poll(async () => {
+                const detail = await getSheetThroughApi(page, sheet.id);
+                const value = detail.attributes.sections[0]?.attributes[0]?.value as { actual: number };
+
+                return value.actual;
+            })
+            .toBe(6);
+
+        const inventario = reading.locator('.site-sheetview__secao').filter({ hasText: 'Inventário' });
+        const editarLista = inventario.getByRole('button', { name: 'EDITAR', exact: true });
+
+        await expect(editarLista).toBeVisible();
+        await editarLista.click();
+        await expect(inventario.getByRole('button', { name: 'CONCLUIR', exact: true })).toBeVisible();
+
+        await inventario.getByRole('button', { name: 'Aumentar Corda' }).click();
+
+        await expect
+            .poll(async () => {
+                const detail = await getSheetThroughApi(page, sheet.id);
+                const value = detail.attributes.sections[1]?.attributes[0]?.value as {
+                    items: { quantity: string }[];
+                };
+
+                return value.items[0]?.quantity;
+            })
+            .toBe('3');
+
+        const historia = reading.locator('.site-sheetview__secao').filter({ hasText: 'História' });
+
+        await historia.getByRole('button', { name: 'EDITAR', exact: true }).click();
+
+        const descricao = historia.locator('.site-sheetview__descricao-edicao');
+
+        await expect(descricao).toBeVisible();
+        await descricao.fill('Descrição atualizada no modo leitura.');
+
+        await expect
+            .poll(async () => {
+                const detail = await getSheetThroughApi(page, sheet.id);
+
+                return detail.attributes.sections[2]?.attributes[0]?.value;
+            })
+            .toBe('Descrição atualizada no modo leitura.');
+
+        const condicao = reading.locator('.site-sheetview__secao').filter({ hasText: 'Condição' });
+        const ferido = condicao.getByRole('button', { name: 'Ferido' });
+
+        await expect(ferido).toHaveAttribute('aria-pressed', 'false');
+        await ferido.click();
+
+        await expect
+            .poll(async () => {
+                const detail = await getSheetThroughApi(page, sheet.id);
+                const value = detail.attributes.sections[3]?.attributes[0]?.value as {
+                    items: { active: boolean }[];
+                };
+
+                return value.items[0]?.active;
+            })
+            .toBe(true);
+
+        await expect(reading.getByRole('status')).toHaveText('SALVO AUTOMATICAMENTE.');
+        await expect(reading.getByText('ALTERAÇÕES NÃO SALVAS · VISUALIZANDO O RASCUNHO')).toHaveCount(0);
+
+        await page.reload();
+        await waitForHydration(page);
+
+        await expect(page.locator('.site-editor__leitura')).toBeVisible();
+        await expect(page.locator('.site-editor__leitura .site-sheetview__descricao')).toHaveText(
+            'Descrição atualizada no modo leitura.'
+        );
+    } finally {
+        const current = await page.request.get(`/api/fichas/${sheet.id}`);
+
+        if (current.ok()) {
+            const detail = (await current.json()) as SheetDetail;
+
+            await deleteSheetThroughApi(page, sheet.id, detail.version);
+        }
     }
 });
 

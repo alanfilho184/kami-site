@@ -100,7 +100,15 @@ test('ficha privada responde 404 e o link público abre sem login e sem indexaç
                             name: 'Info',
                             type: 0,
                             position: 0,
-                            attributes: [{ name: 'Origem', type: 0, position: 0, value: 'Porto Cinza' }]
+                            attributes: [
+                                { name: 'Origem', type: 0, position: 0, value: 'Porto Cinza' },
+                                {
+                                    name: 'Vida',
+                                    type: 4,
+                                    position: 1,
+                                    value: { actual: 5, max: 10, min: 0, step: 1 }
+                                }
+                            ]
                         }
                     ]
                 }
@@ -138,6 +146,8 @@ test('ficha privada responde 404 e o link público abre sem login e sem indexaç
         await expect(publicPage.locator('.site-ficha-publica__titulo')).toHaveText(sheet.name);
         await expect(publicPage.getByText('Porto Cinza')).toBeVisible();
         await expect(publicPage.locator('.site-editor__topo')).toHaveCount(0);
+        await expect(publicPage.locator('.site-sheetview__barra-btn')).toHaveCount(0);
+        await expect(publicPage.locator('.site-sheetview__toggle-edicao')).toHaveCount(0);
         await publicPage.close();
 
         sheet = await shareSheet(page, sheet, { isPublic: false });

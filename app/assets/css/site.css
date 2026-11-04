@@ -3722,6 +3722,23 @@
     color: var(--kami-warn);
 }
 
+.site-editor__leitura-status,
+.site-editor__leitura-erro {
+    margin: 0;
+    font-family: var(--kami-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.site-editor__leitura-status {
+    color: var(--kami-live);
+}
+
+.site-editor__leitura-erro {
+    color: var(--kami-danger);
+}
+
 .site-editor__leitura-acoes {
     display: flex;
     gap: var(--kami-space-2);
