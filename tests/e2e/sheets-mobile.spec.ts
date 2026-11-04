@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { SheetDetail } from '../../shared/types/sheet';
+import { sheetPath } from '../../shared/utils/sheet-url';
 
 const loginEmail = process.env.E2E_AUTH_EMAIL;
 const loginPassword = process.env.E2E_AUTH_PASSWORD;
@@ -63,7 +64,7 @@ test('mobile: barra inferior fixa salva a ficha e não duplica as ações do top
 
     try {
         await page.setViewportSize({ width: 360, height: 800 });
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await expect(page.locator('.site-editor__acoes-fixas')).toBeVisible();
@@ -155,7 +156,7 @@ test('mobile: posicionamento fica compacto, sem arraste nativo e sem rolagem hor
         currentVersion = patched.version;
 
         await page.setViewportSize({ width: 360, height: 800 });
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
         await page.locator('#modo-editor').selectOption('posicionamento');
 
@@ -186,7 +187,7 @@ test('mobile: configurações prendem o foco e travam o scroll', async ({ page }
 
     try {
         await page.setViewportSize({ width: 360, height: 800 });
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.locator('.site-editor__acoes-fixas').getByRole('button', { name: 'Configurações da ficha' }).click();
@@ -243,7 +244,7 @@ test('mobile: lightbox prende o foco e trava o scroll', async ({ page }) => {
         currentVersion = patched.version;
 
         await page.setViewportSize({ width: 360, height: 800 });
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
         await page.locator('#modo-editor').selectOption('estrutura');
 
@@ -289,7 +290,7 @@ test('mobile: navbar do painel usa abas curtas e some dentro do editor', async (
         await expect(nav.getByRole('link', { name: 'AJUSTES' })).toBeVisible();
         await expectNoHorizontalScroll(page);
 
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await expect(page.locator('.site-painel-nav--editor')).toBeHidden();

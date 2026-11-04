@@ -76,9 +76,8 @@ app/
       ├── entrar.vue
       ├── painel.vue
       ├── fichas/
-      │    ├── index.vue
-      │    └── [id].vue
-      ├── ficha/[userId]/[sheetName].vue
+      │    └── index.vue
+      ├── [userId]/ficha/[sheetName].vue
       ├── configuracoes.vue
       ├── termos.vue
       ├── privacidade.vue
@@ -482,7 +481,7 @@ Resultado em 31/10/2026:
 Escopo:
 
 - `/fichas` lista as fichas do usuário;
-- `/fichas/:id` editor com seções e os cinco tipos de atributo;
+- `/:userId/ficha/:sheetName` editor com seções e os cinco tipos de atributo; `/fichas/:id` redireciona para a URL canônica;
 - criar, renomear, duplicar e excluir ficha;
 - validação Zod dos limites do bot (nome, seção, atributo, valor);
 - editor de lista (`items`) e barra (`actual`, `max`, `min`, `step`);
@@ -675,7 +674,7 @@ Resultado em 03/11/2026:
 
 Escopo:
 
-- preservar `/ficha/:userId/:sheetName`;
+- URL canônica `/:userId/ficha/:sheetName`, compartilhável direto da aba; `/ficha/:userId/:sheetName` continua como redirecionamento;
 - `is_public` e senha opcional;
 - verificação de senha compatível com bcrypt e com o legado em texto puro;
 - rehash de senha legada em acesso bem-sucedido, se o bot autorizar a escrita;
@@ -696,13 +695,22 @@ Aceite:
 
 Resultado em 04/11/2026:
 
-- `GET /api/ficha/:userId/:sheetName` responde `404` para ficha inexistente ou privada e `401` (`sheet_password_required`) quando falta o cookie de acesso; a página `/ficha/:userId/:sheetName` renderiza o formulário de senha nesse caso;
+- `GET /api/ficha/:userId/:sheetName` responde `404` para ficha inexistente ou privada e `401` (`sheet_password_required`) quando falta o cookie de acesso; a página canônica `/:userId/ficha/:sheetName` renderiza o formulário de senha nesse caso e `/ficha/:userId/:sheetName` redireciona para ela;
 - `POST /api/ficha/:userId/:sheetName/acesso` valida a senha (bcrypt novo ou texto puro legado) com rate limit de 10 tentativas por 15 minutos por IP e ficha, e grava o cookie `kami_ficha_<id>` assinado por HMAC com `SESSION_SECRET`, `HttpOnly`, `SameSite=Lax`, TTL de 1 hora;
-- `PATCH /api/fichas/:id/publicacao` recebe `{ version, isPublic, password? }`; `password` omitido mantém a senha, `null` remove e um valor novo é gravado em bcrypt (custo 12); a seção `COMPARTILHAMENTO` do modal `CONFIGURAÇÕES` controla isso e copia o link;
+- `PATCH /api/fichas/:id/publicacao` recebe `{ version, isPublic, password? }`; `password` omitido mantém a senha, `null` remove e um valor novo é gravado em bcrypt (custo 12); a seção `COMPARTILHAMENTO` do modal `CONFIGURAÇÕES` controla isso e copia a URL da aba;
 - a ficha pública reutiliza o `KamiSheetView` em modo documento, sem controles de edição, com `noindex, nofollow`, `X-Robots-Tag` e `Cache-Control: private, no-store`;
-- busca pública escolhe a ficha pública mais recente quando há nomes duplicados históricos e nunca revela fichas privadas;
+- busca pública escolhe a ficha pública mais recente quando há nomes duplicados históricos e nunca revela fichas privadas; `?id=` desempata duplicados;
 - o rehash de senha legada em acesso bem-sucedido continua pendente de autorização de escrita do bot;
 - 20 testes unitários novos (senha bcrypt/legado, token/cookie, compartilhamento e schema) e 3 E2E novos da D4 (privada 404, senha com cookie e modal); a suíte fechou com 157 unitários e 58 E2E aprovados + 1 skip no build de produção.
+
+Revisão de URL em 04/11/2026:
+
+- editor e visão pública passam a viver na mesma URL `/:userId/ficha/:sheetName`; o dono autenticado vê o editor/leitura e os demais veem a ficha pública, mantendo `404` para privada e o fluxo de senha;
+- `/fichas/:id` responde `302` para a URL canônica com `?id=` e `/ficha/:userId/:sheetName` responde `302` para a URL canônica;
+- nomes duplicados históricos usam `?id=` como desambiguador na URL; fichas novas e nomes únicos ficam com a URL limpa;
+- a listagem, a criação, o redirecionamento de links antigos e a cópia de link usam o mesmo construtor de URL; renomear no editor atualiza a barra de endereço;
+- o layout do editor é escolhido no próprio componente (painel para o dono, padrão para o público), sem depender do prefixo antigo;
+- a suíte fechou com 162 testes unitários e 60 E2E aprovados + 1 skip no build de produção.
 
 ### D4.1 - Modo leitura do dono
 
@@ -712,7 +720,7 @@ Resultado em 04/11/2026:
 
 Escopo:
 
-- o editor alterna para leitura por `?ver=1` na mesma rota `/fichas/:id`, sem recarregar e sem perder o rascunho;
+- o editor alterna para leitura por `?ver=1` na mesma rota canônica `/:userId/ficha/:sheetName`, sem recarregar e sem perder o rascunho;
 - a leitura renderiza o `KamiSheetView` no modo documento, sem sidebar, header de edição, inspetor ou barra de ações; os atalhos do próprio componente (`adjustable`) ficam ligados para o dono;
 - os atalhos de barra (passo), lista (editar, quantidade, adicionar, remover e mover), descrição (editar) e status (alternar) editam direto na leitura e disparam salvamento automático com debounce;
 - cabeçalho enxuto com nome da ficha, aviso de alterações não salvas, estado do salvamento automático e botões `EDITAR` e `FICHAS`;
@@ -736,7 +744,7 @@ Resultado em 04/11/2026:
 Revisão em 04/11/2026:
 
 - atalhos de barra, lista, descrição e status ligados no modo leitura do dono, com salvamento automático (debounce de 700 ms) e flush ao sair da leitura;
-- 1 E2E novo cobre barra, lista, descrição e status com persistência após recarregar; a suíte fechou com 157 unitários e 58 E2E aprovados + 1 skip.
+- 1 E2E novo cobre barra, lista, descrição e status com persistência após recarregar; a suíte fechou com 162 unitários e 60 E2E aprovados + 1 skip.
 
 ### D5 - Tempo real, sincronização e hardening
 
@@ -854,8 +862,8 @@ mesmo fio com respiro acima e abaixo.
 - Título, descrição, canonical e OG por página. A landing usa a origem real da requisição
   para canonical e OG, então dev, túnel e produção não emitem `localhost`.
 - OG estático em `public/og/kami-site.png`; sem dependência de geração dinâmica na D1.
-- `robots.txt` permite landing/legal, bloqueia `/api/`, `/painel`, `/fichas`, `/entrar` e
-  `/ficha`.
+- `robots.txt` permite landing/legal, bloqueia `/api/`, `/painel`, `/fichas`, `/entrar`,
+  `/:userId/ficha/` e `/ficha/:userId/:sheetName`.
 - Sitemap apenas com páginas estáticas e legais; fichas públicas ficam fora.
 - Fontes com `font-display: swap`; preload apenas do display e do mono usados acima da dobra.
 - Logo em WebP com `width`/`height` e `fetchpriority="high"`.
@@ -997,7 +1005,7 @@ date_trunc('milliseconds', last_use) = $3`; se 0 linhas, `409` com opção de re
 
 ## 11. Fichas públicas (D4)
 
-- Rota preservada: `/ficha/:userId/:sheetName`.
+- Rota canônica: `/:userId/ficha/:sheetName`, a mesma do editor; a URL antiga `/ficha/:userId/:sheetName` responde `302` para ela.
 - Nome da ficha na URL é exato e URL-encoded; 404 se não existir, não for pública ou a senha
   não tiver sido validada.
 - Senha opcional:
@@ -1066,8 +1074,9 @@ date_trunc('milliseconds', last_use) = $3`; se 0 linhas, `409` com opção de re
 | `/painel`                              | Área do usuário (D2)                             |
 | `/dashboard`                           | `302` → `/painel`                                |
 | `/fichas`                              | Lista do usuário (D3)                            |
-| `/fichas/:id`                          | Editor (D3)                                      |
-| `/ficha`, `/ficha/:userId/:sheetName`  | Ficha pública somente leitura (D4)               |
+| `/:userId/ficha/:sheetName`            | Editor/leitura do dono e ficha pública (D4)      |
+| `/fichas/:id`                          | `302` → `/:userId/ficha/:sheetName`              |
+| `/ficha/:userId/:sheetName`            | `302` → `/:userId/ficha/:sheetName`              |
 | `/configuracoes`                       | Conta (D2/D5)                                    |
 | `/comandos`                            | `410 Gone`, com explicação e link para o Discord |
 | `/convite`                             | `302` → convite do bot                           |
@@ -1212,34 +1221,36 @@ Cloudflare (DNS + proxy + health check / failover)
 
 ## 21. Registro de decisões
 
-| Data       | Decisão                                                           | Motivo                                                              |
-| ---------- | ----------------------------------------------------------------- | ------------------------------------------------------------------- |
-| 28/10/2026 | Nuxt 4 SSR + Options API + TypeScript                             | SEO, SSR e alinhamento ao guia do frontend                          |
-| 28/10/2026 | Landing "dossiê operacional"                                      | Identidade Kami, não landing genérica                               |
-| 28/10/2026 | Estatísticas reais com cache e fallback                           | Credibilidade e resiliência                                         |
-| 28/10/2026 | Estatísticas alinhadas ao bot-status                              | Usuários, ativos em 30 dias, fichas e interações                    |
-| 28/10/2026 | Macros como roadmap                                               | Sem uso confirmado no bot                                           |
-| 28/10/2026 | Sessão opaca em cookie HttpOnly                                   | Sem JWT/localStorage; logout real                                   |
-| 28/10/2026 | Bot dono do schema; site com role dedicada (substituída em 31/10) | Evitar migração divergente e superusuário                           |
-| 28/10/2026 | Socket.IO com adapter Postgres                                    | Escala horizontal sem Redis                                         |
-| 28/10/2026 | Sync site → bot por código                                        | Não acoplar o bot a uma API do site                                 |
-| 28/10/2026 | `/comandos` 410; rotas antigas 302                                | Limpeza de SEO sem quebrar links                                    |
-| 28/10/2026 | Duas VPS + PM2 fork + Nginx + Cloudflare                          | Disponibilidade sem estado local                                    |
-| 28/10/2026 | Hero com prévia em imagem 3:2 substituível                        | Troca por captura real sem tocar no layout                          |
-| 29/10/2026 | Captura real do Discord substitui a prévia 3:2                    | Print 607x659 ao lado do H1; prévia limitada a 560px                |
-| 28/10/2026 | Fontes WOFF2 com subset latino                                    | 316 KB → 107 KB e Lighthouse 96                                     |
-| 28/10/2026 | Dois modos de leitura com toggle local                            | Página contínua para consulta; seções para foco                     |
-| 28/10/2026 | Landing sem protagonismo do Discord                               | Preparar a saída do Discord sem perder o suporte                    |
-| 31/10/2026 | Site assume o schema Prisma e as migrations                       | Projeto principal é o site; evita ida e volta com o bot             |
-| 31/10/2026 | Prisma 7 só para schema/migrations                                | Runtime segue com pg; sem Prisma Client no site                     |
-| 31/10/2026 | Cadastro simples com username, e-mail e senha, sem verificação    | Login sozinho não criava contas; merge com Discord fica para depois |
-| 31/10/2026 | Painel com IRT e macros somente leitura                           | IRT é do bot; D5 liga o tempo real; macros não têm editor definido  |
-| 31/10/2026 | Versão 6.2.0 única até a promoção para produção                   | Produção só conta quando sobe; evita bump por commit                |
-| 31/10/2026 | Editor grava o mesmo JSON de `sections` do bot                    | Sem formato paralelo; bot continua entendendo a ficha               |
-| 31/10/2026 | Limites reais do backend do bot (32/20/32/1024)                   | Evita ficha que o bot rejeita; a documentação anterior dizia 256    |
-| 31/10/2026 | Duplicar cria ficha privada, sem senha e sem IRT                  | Evita expor conteúdo ou herdar vínculo ao copiar                    |
-| 31/10/2026 | Ficha legacy converte na leitura e grava formato novo no 1º save  | Migração preguiçosa, sem alterar dados antigos sem ação do usuário  |
-| 04/11/2026 | Ficha pública com `401` para senha e `404` para privada           | Não revela a existência de ficha privada a quem não tem o link      |
-| 04/11/2026 | Cookie de acesso por ficha assinado por HMAC                      | Libera a senha por 1 hora sem criar sessão de conta nem JWT         |
-| 04/11/2026 | Senha nova em bcrypt; legado em texto puro só para leitura        | Compatibilidade com o bot sem reescrever senhas sem autorização     |
-| 04/11/2026 | Ficha pública sempre `noindex` e fora do sitemap                  | Compartilhamento por link direto, não por busca                     |
+| Data       | Decisão                                                           | Motivo                                                                 |
+| ---------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 28/10/2026 | Nuxt 4 SSR + Options API + TypeScript                             | SEO, SSR e alinhamento ao guia do frontend                             |
+| 28/10/2026 | Landing "dossiê operacional"                                      | Identidade Kami, não landing genérica                                  |
+| 28/10/2026 | Estatísticas reais com cache e fallback                           | Credibilidade e resiliência                                            |
+| 28/10/2026 | Estatísticas alinhadas ao bot-status                              | Usuários, ativos em 30 dias, fichas e interações                       |
+| 28/10/2026 | Macros como roadmap                                               | Sem uso confirmado no bot                                              |
+| 28/10/2026 | Sessão opaca em cookie HttpOnly                                   | Sem JWT/localStorage; logout real                                      |
+| 28/10/2026 | Bot dono do schema; site com role dedicada (substituída em 31/10) | Evitar migração divergente e superusuário                              |
+| 28/10/2026 | Socket.IO com adapter Postgres                                    | Escala horizontal sem Redis                                            |
+| 28/10/2026 | Sync site → bot por código                                        | Não acoplar o bot a uma API do site                                    |
+| 28/10/2026 | `/comandos` 410; rotas antigas 302                                | Limpeza de SEO sem quebrar links                                       |
+| 28/10/2026 | Duas VPS + PM2 fork + Nginx + Cloudflare                          | Disponibilidade sem estado local                                       |
+| 28/10/2026 | Hero com prévia em imagem 3:2 substituível                        | Troca por captura real sem tocar no layout                             |
+| 29/10/2026 | Captura real do Discord substitui a prévia 3:2                    | Print 607x659 ao lado do H1; prévia limitada a 560px                   |
+| 28/10/2026 | Fontes WOFF2 com subset latino                                    | 316 KB → 107 KB e Lighthouse 96                                        |
+| 28/10/2026 | Dois modos de leitura com toggle local                            | Página contínua para consulta; seções para foco                        |
+| 28/10/2026 | Landing sem protagonismo do Discord                               | Preparar a saída do Discord sem perder o suporte                       |
+| 31/10/2026 | Site assume o schema Prisma e as migrations                       | Projeto principal é o site; evita ida e volta com o bot                |
+| 31/10/2026 | Prisma 7 só para schema/migrations                                | Runtime segue com pg; sem Prisma Client no site                        |
+| 31/10/2026 | Cadastro simples com username, e-mail e senha, sem verificação    | Login sozinho não criava contas; merge com Discord fica para depois    |
+| 31/10/2026 | Painel com IRT e macros somente leitura                           | IRT é do bot; D5 liga o tempo real; macros não têm editor definido     |
+| 31/10/2026 | Versão 6.2.0 única até a promoção para produção                   | Produção só conta quando sobe; evita bump por commit                   |
+| 31/10/2026 | Editor grava o mesmo JSON de `sections` do bot                    | Sem formato paralelo; bot continua entendendo a ficha                  |
+| 31/10/2026 | Limites reais do backend do bot (32/20/32/1024)                   | Evita ficha que o bot rejeita; a documentação anterior dizia 256       |
+| 31/10/2026 | Duplicar cria ficha privada, sem senha e sem IRT                  | Evita expor conteúdo ou herdar vínculo ao copiar                       |
+| 31/10/2026 | Ficha legacy converte na leitura e grava formato novo no 1º save  | Migração preguiçosa, sem alterar dados antigos sem ação do usuário     |
+| 04/11/2026 | Ficha pública com `401` para senha e `404` para privada           | Não revela a existência de ficha privada a quem não tem o link         |
+| 04/11/2026 | Cookie de acesso por ficha assinado por HMAC                      | Libera a senha por 1 hora sem criar sessão de conta nem JWT            |
+| 04/11/2026 | Senha nova em bcrypt; legado em texto puro só para leitura        | Compatibilidade com o bot sem reescrever senhas sem autorização        |
+| 04/11/2026 | Ficha pública sempre `noindex` e fora do sitemap                  | Compartilhamento por link direto, não por busca                        |
+| 04/11/2026 | URL única `/:userId/ficha/:sheetName` para editor e público       | Copiar a aba já gera o link; `/fichas/:id` e `/ficha/...` redirecionam |
+| 04/11/2026 | `?id=` só para nomes duplicados históricos                        | Mantém URLs limpas e preserva o acesso às fichas antigas               |

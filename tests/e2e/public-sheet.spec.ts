@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import type { SheetDetail } from '../../shared/types/sheet';
+import { sheetPath } from '../../shared/utils/sheet-url';
 
 const loginEmail = process.env.E2E_AUTH_EMAIL;
 const loginPassword = process.env.E2E_AUTH_PASSWORD;
@@ -53,7 +54,7 @@ async function shareSheet(
 }
 
 function publicPath(sheet: SheetDetail): string {
-    return `/ficha/${sheet.userId}/${encodeURIComponent(sheet.name)}`;
+    return sheetPath(sheet.userId, sheet.name);
 }
 
 function publicUrl(sheet: SheetDetail): string {
@@ -67,7 +68,7 @@ async function anonymousContext(page: Page): Promise<BrowserContext> {
         throw new Error('Navegador indisponível para o teste anônimo.');
     }
 
-    return browser.newContext();
+    return browser.newContext({ storageState: { cookies: [], origins: [] } });
 }
 
 async function deleteCurrentSheet(page: Page, sheetId: number): Promise<void> {
@@ -138,11 +139,22 @@ test('ficha privada responde 404 e o link público abre sem login e sem indexaç
         expect(publicResponse.status()).toBe(200);
         expect(publicResponse.headers()['x-robots-tag']).toContain('noindex');
 
+        const byIdResponse = await anonymous.request.get(
+            `${baseUrl}/api/ficha/${sheet.userId}/${encodeURIComponent(sheet.name)}?id=${sheet.id}`
+        );
+        expect(byIdResponse.status()).toBe(200);
+
+        const wrongIdResponse = await anonymous.request.get(
+            `${baseUrl}/api/ficha/${sheet.userId}/${encodeURIComponent(sheet.name)}?id=999999999`
+        );
+        expect(wrongIdResponse.status()).toBe(404);
+
         const publicPage = await anonymous.newPage();
         const publicNavigation = await publicPage.goto(publicUrl(sheet));
 
         expect(publicNavigation?.status()).toBe(200);
         await expect(publicPage.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
+        await expect(publicPage).toHaveTitle(`${sheet.name} - Kami`);
         await expect(publicPage.locator('.site-ficha-publica__titulo')).toHaveText(sheet.name);
         await expect(publicPage.getByText('Porto Cinza')).toBeVisible();
         await expect(publicPage.locator('.site-editor__topo')).toHaveCount(0);
@@ -158,6 +170,31 @@ test('ficha privada responde 404 e o link público abre sem login e sem indexaç
         expect(hiddenAgain.status()).toBe(404);
     } finally {
         await anonymous.close();
+        await deleteCurrentSheet(page, sheet.id);
+    }
+});
+
+test('as URLs antigas redirecionam para a URL canônica', async ({ page }) => {
+    test.setTimeout(60_000);
+    test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
+
+    const sheet = await createSheetThroughApi(page, uniqueSheetName());
+
+    try {
+        const legacyEditor = await page.request.get(`${baseUrl}/fichas/${sheet.id}`, { maxRedirects: 0 });
+        const expected = `${sheetPath(sheet.userId, sheet.name)}?id=${sheet.id}`;
+
+        expect(legacyEditor.status()).toBe(302);
+        expect(legacyEditor.headers()['location']).toBe(expected);
+
+        const legacyPublic = await page.request.get(
+            `${baseUrl}/ficha/${sheet.userId}/${encodeURIComponent(sheet.name)}`,
+            { maxRedirects: 0 }
+        );
+
+        expect(legacyPublic.status()).toBe(302);
+        expect(legacyPublic.headers()['location']).toBe(sheetPath(sheet.userId, sheet.name));
+    } finally {
         await deleteCurrentSheet(page, sheet.id);
     }
 });
@@ -225,7 +262,7 @@ test('o modal de configurações publica a ficha e copia o link', async ({ page 
     let sheet = await createSheetThroughApi(page, uniqueSheetName());
 
     try {
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.getByRole('button', { name: 'CONFIGURAÇÕES', exact: true }).click();

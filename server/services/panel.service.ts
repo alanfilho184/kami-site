@@ -28,6 +28,7 @@ export interface SummaryRow extends QueryResultRow {
 
 export interface SheetRow extends QueryResultRow {
     id: number;
+    user_id: number;
     sheet_name: string;
     is_public: boolean;
     legacy: boolean;
@@ -97,6 +98,7 @@ export function toAccount(row: AccountRow): PanelAccount {
 function toSheet(row: SheetRow): SheetListItem {
     return {
         id: row.id,
+        userId: row.user_id,
         name: row.sheet_name,
         isPublic: row.is_public,
         isLegacy: row.legacy,
@@ -165,6 +167,7 @@ export function createPanelService(dependencies: Partial<PanelDependencies> = {}
             query<SheetRow>(SQL`
                 SELECT
                     s.id,
+                    s.user_id,
                     s.sheet_name,
                     s.is_public,
                     s.legacy,

@@ -248,7 +248,7 @@ curl -fsS https://kamiapp.com.br/api/health
 curl -fsS https://kamiapp.com.br/api/ready
 curl -fsS https://kamiapp.com.br/ | head -n 20
 curl -fsS https://kamiapp.com.br/termos > /dev/null
-curl -fsS https://kamiapp.com.br/ficha > /dev/null
+curl -sS -o /dev/null -w '%{http_code}\n' https://kamiapp.com.br/ficha/123/amostra
 curl -fsS https://kamiapp.com.br/entrar > /dev/null
 curl -fsS https://kamiapp.com.br/cadastrar > /dev/null
 curl -sS -o /dev/null -w '%{http_code}\n' https://kamiapp.com.br/painel
@@ -261,7 +261,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://kamiapp.com.br/login
 curl -sS -o /dev/null -w '%{http_code}\n' https://kamiapp.com.br/comandos
 ```
 
-A fumaça da D1 exige `/`, jurídico, `/ficha` com o aviso de desenvolvimento,
+A fumaça da D1 exige `/`, jurídico, `/ficha/:userId/:sheetName` em `302` para a URL canônica,
 `/comandos` em `410`, `/api/health` em `200`, `/api/ready` em `200` e a imagem
 OG acessível no domínio público.
 
@@ -281,7 +281,7 @@ e o painel mostra conta, contagens reais, fichas recentes e os vínculos IRT em 
 somente leitura.
 
 A fumaça da D3 acrescenta, com login, criar uma ficha descartável, abrir
-`/fichas/:id`, adicionar um atributo de cada tipo, salvar, recarregar e conferir os
+`/:userId/ficha/:sheetName`, adicionar um atributo de cada tipo, salvar, recarregar e conferir os
 valores. Edite a mesma ficha em duas abas e confirme o `409` na segunda; exclua no
 fim. Uma ficha com IRT deve abrir somente leitura e responder `423` em PATCH/DELETE.
 O release `6.2.0` fica pendente de migração no `kami_prod`, revisão jurídica e

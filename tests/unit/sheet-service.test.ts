@@ -33,6 +33,7 @@ function createRow(overrides: Partial<SheetRow> = {}): SheetRow {
 
 interface ServiceDependencies {
     findSheet: ReturnType<typeof vi.fn>;
+    findSheetByName: ReturnType<typeof vi.fn>;
     findSheetName: ReturnType<typeof vi.fn>;
     insertSheet: ReturnType<typeof vi.fn>;
     updateSheetRecord: ReturnType<typeof vi.fn>;
@@ -44,6 +45,7 @@ interface ServiceDependencies {
 function createService() {
     const deps: ServiceDependencies = {
         findSheet: vi.fn(),
+        findSheetByName: vi.fn(),
         findSheetName: vi.fn(),
         insertSheet: vi.fn(),
         updateSheetRecord: vi.fn(),
@@ -63,6 +65,23 @@ describe('serviço de fichas', () => {
 
         await expect(service.getSheet(42, 7)).rejects.toThrow(SheetNotFoundError);
         expect(deps.findSheet).toHaveBeenCalledWith(42, 7);
+    });
+
+    it('getSheetByName devolve a ficha mais recente do dono com aquele nome', async () => {
+        const { service, deps } = createService();
+        deps.findSheetByName.mockResolvedValue(createRow({ id: 9, sheet_name: 'Lyra Voss' }));
+
+        const detail = await service.getSheetByName(42, 'Lyra Voss');
+
+        expect(detail.id).toBe(9);
+        expect(deps.findSheetByName).toHaveBeenCalledWith(42, 'Lyra Voss');
+    });
+
+    it('getSheetByName falha quando o dono não tem a ficha', async () => {
+        const { service, deps } = createService();
+        deps.findSheetByName.mockResolvedValue(null);
+
+        await expect(service.getSheetByName(42, 'Sumida')).rejects.toThrow(SheetNotFoundError);
     });
 
     it('getSheet devolve o detalhe normalizado de uma ficha legada', async () => {

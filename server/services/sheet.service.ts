@@ -61,6 +61,7 @@ export interface UpdateSheetSharingRecordInput {
 
 export interface SheetDependencies {
     findSheet: (userId: number, sheetId: number) => Promise<SheetRow | null>;
+    findSheetByName: (userId: number, name: string) => Promise<SheetRow | null>;
     findSheetName: (userId: number, name: string, excludeSheetId: number) => Promise<ExistingSheetRow | null>;
     insertSheet: (
         userId: number,
@@ -164,6 +165,28 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                 FROM sheets s
                 WHERE s.id = ${sheetId}
                   AND s.user_id = ${userId}
+                LIMIT 1
+            `));
+    const findSheetByName =
+        dependencies.findSheetByName ??
+        ((userId: number, name: string) =>
+            queryOne<SheetRow>(SQL`
+                SELECT
+                    s.id,
+                    s.user_id,
+                    s.sheet_name,
+                    s.sheet_password,
+                    s.is_public,
+                    s.legacy,
+                    s.attributes,
+                    s.sheet_layout,
+                    date_trunc('milliseconds', s.last_use) AS last_use,
+                    s.created_at,
+                    EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id) AS is_live
+                FROM sheets s
+                WHERE s.user_id = ${userId}
+                  AND s.sheet_name = ${name}
+                ORDER BY s.id DESC
                 LIMIT 1
             `));
     const findSheetName =
@@ -363,6 +386,16 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         return toDetail(row);
     }
 
+    async function getSheetByName(userId: number, name: string): Promise<SheetDetail> {
+        const row = await findSheetByName(userId, name);
+
+        if (!row) {
+            throw new SheetNotFoundError();
+        }
+
+        return toDetail(row);
+    }
+
     async function createSheet(userId: number, name: string): Promise<SheetDetail> {
         const sheetName = requireSheetName(name);
         await requireAvailableName(userId, sheetName);
@@ -469,7 +502,16 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         return toDetail(row);
     }
 
-    return { getSheet, createSheet, updateSheet, renameSheet, updateSheetSharing, deleteSheet, duplicateSheet };
+    return {
+        getSheet,
+        getSheetByName,
+        createSheet,
+        updateSheet,
+        renameSheet,
+        updateSheetSharing,
+        deleteSheet,
+        duplicateSheet
+    };
 }
 
 export const sheetService = createSheetService();

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import type { SheetDetail } from '../../shared/types/sheet';
+import { sheetPath } from '../../shared/utils/sheet-url';
 
 const loginEmail = process.env.E2E_AUTH_EMAIL;
 const loginPassword = process.env.E2E_AUTH_PASSWORD;
@@ -45,6 +46,21 @@ async function getSheetThroughApi(page: Page, sheetId: number): Promise<SheetDet
     return (await response.json()) as SheetDetail;
 }
 
+async function getSheetIdByName(page: Page, name: string): Promise<number> {
+    const response = await page.request.get('/api/fichas');
+
+    expect(response.status()).toBe(200);
+
+    const items = (await response.json()) as { id: number; name: string }[];
+    const item = items.find(entry => entry.name === name);
+
+    if (!item) {
+        throw new Error(`Ficha "${name}" não encontrada na listagem.`);
+    }
+
+    return item.id;
+}
+
 test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ page }) => {
     test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
 
@@ -60,7 +76,7 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
 
     await page.locator('#nova-ficha').fill(sheetName);
     await page.getByRole('button', { name: 'CRIAR FICHA' }).click();
-    await page.waitForURL('**/fichas/**');
+    await page.waitForURL(/\/\d+\/ficha\//);
     await waitForHydration(page);
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
 
@@ -119,7 +135,7 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
     await expect(page.getByText('FICHA SALVA.')).toBeVisible();
 
-    const sheetId = Number(page.url().split('/').pop());
+    const sheetId = await getSheetIdByName(page, sheetName);
     const saved = (await (await page.request.get(`/api/fichas/${sheetId}`)).json()) as SheetDetail;
 
     expect(saved.attributes.sections[0].attributes).toHaveLength(0);
@@ -190,7 +206,7 @@ test('o modo leitura preserva o rascunho e alterna pelo atalho', async ({ page }
     const sheet = await createSheetThroughApi(page, uniqueSheetName());
 
     try {
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.getByRole('button', { name: 'ADICIONAR ATRIBUTO' }).click();
@@ -209,6 +225,34 @@ test('o modo leitura preserva o rascunho e alterna pelo atalho', async ({ page }
         await expect(page.locator('#atributo-valor-0-0')).toHaveValue('Ainda não salvo.');
     } finally {
         await deleteSheetThroughApi(page, sheet.id, sheet.version);
+    }
+});
+
+test('renomear no editor atualiza a URL canônica da aba', async ({ page }) => {
+    test.setTimeout(60_000);
+    test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
+
+    const sheet = await createSheetThroughApi(page, uniqueSheetName());
+    const newName = uniqueSheetName();
+
+    try {
+        await page.goto(sheetPath(sheet.userId, sheet.name));
+        await waitForHydration(page);
+
+        await page.locator('#ficha-nome').fill(newName);
+        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+
+        await expect(page).toHaveURL(
+            new RegExp(sheetPath(sheet.userId, newName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+        );
+
+        const renamed = await getSheetThroughApi(page, sheet.id);
+
+        expect(renamed.name).toBe(newName);
+    } finally {
+        const current = await getSheetThroughApi(page, sheet.id);
+
+        await deleteSheetThroughApi(page, sheet.id, current.version);
     }
 });
 
@@ -288,7 +332,7 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
 
         expect(saved.status()).toBe(200);
 
-        await page.goto(`/fichas/${sheet.id}?ver=1`);
+        await page.goto(`${sheetPath(sheet.userId, sheet.name)}?ver=1`);
         await waitForHydration(page);
 
         const reading = page.locator('.site-editor__leitura');
@@ -421,7 +465,7 @@ test('a barra guarda a cor escolhida e o preenchimento usa essa cor', async ({ p
         expect(response.status()).toBe(200);
         currentVersion = ((await response.json()) as SheetDetail).version;
 
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.getByRole('button', { name: 'Ajustes da barra Vida' }).click();
@@ -499,7 +543,7 @@ test('cria uma seção de cabeçalho com título, imagem opcional e atributos li
     let currentVersion = sheet.version;
 
     try {
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.getByRole('button', { name: 'ADICIONAR SEÇÃO' }).click();
@@ -625,7 +669,7 @@ test('a seção de status alterna o estado ativo no editor e salva na ficha', as
         expect(response.status()).toBe(200);
         currentVersion = ((await response.json()) as SheetDetail).version;
 
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.getByRole('button', { name: 'POSICIONAMENTO', exact: true }).click();
@@ -731,7 +775,7 @@ test('a galeria respeita as colunas por imagem e abre o lightbox com teclado e b
         expect(response.status()).toBe(200);
         currentVersion = ((await response.json()) as SheetDetail).version;
 
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         // No posicionamento, a galeria só aparece como destino para imagens.
@@ -837,7 +881,7 @@ test('qualquer imagem abre o lightbox sem o carrossel', async ({ page }) => {
         expect(response.status()).toBe(200);
         currentVersion = ((await response.json()) as SheetDetail).version;
 
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
         await page.getByRole('button', { name: 'ESTRUTURA', exact: true }).click();
 
@@ -907,7 +951,7 @@ test('a tabela edita células, linhas e colunas e é salva na ficha', async ({ p
         expect(response.status()).toBe(200);
         currentVersion = ((await response.json()) as SheetDetail).version;
 
-        await page.goto(`/fichas/${sheet.id}`);
+        await page.goto(sheetPath(sheet.userId, sheet.name));
         await waitForHydration(page);
 
         await page.getByRole('button', { name: 'POSICIONAMENTO', exact: true }).click();
@@ -1026,10 +1070,10 @@ test('ficha ao vivo abre em modo somente leitura com mock de IRT', async ({ page
 
     await page.locator('#nova-ficha').fill(sheetName);
     await page.getByRole('button', { name: 'CRIAR FICHA' }).click();
-    await page.waitForURL('**/fichas/**');
+    await page.waitForURL(/\/\d+\/ficha\//);
     await waitForHydration(page);
 
-    const sheetId = Number(page.url().split('/').pop());
+    const sheetId = await getSheetIdByName(page, sheetName);
     const authenticSheet = (await (await page.request.get(`/api/fichas/${sheetId}`)).json()) as SheetDetail;
 
     try {
@@ -1049,12 +1093,21 @@ test('ficha ao vivo abre em modo somente leitura com mock de IRT', async ({ page
             });
         });
 
-        await page
-            .locator('.site-fichas__item')
-            .filter({ hasText: sheetName })
-            .getByRole('link', { name: 'ABRIR' })
-            .click();
-        await page.waitForURL('**/fichas/**');
+        await page.evaluate(
+            async url => {
+                const app = (
+                    document.querySelector('#__nuxt') as {
+                        __vue_app__?: {
+                            config: { globalProperties: { $router: { push: (to: string) => Promise<unknown> } } };
+                        };
+                    } | null
+                )?.__vue_app__;
+
+                await app?.config.globalProperties.$router.push(url);
+            },
+            `${sheetPath(authenticSheet.userId, authenticSheet.name)}?id=${sheetId}`
+        );
+        await page.waitForURL(/\/\d+\/ficha\//);
 
         await expect(page.getByText('SOMENTE LEITURA', { exact: true })).toBeVisible();
         await expect(page.locator('.site-editor__selos').getByText('AO VIVO', { exact: true })).toBeVisible();

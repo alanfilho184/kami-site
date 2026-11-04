@@ -16,6 +16,7 @@ export interface PanelSummary {
 
 export interface SheetListItem {
     id: number;
+    userId: number;
     name: string;
     isPublic: boolean;
     isLegacy: boolean;

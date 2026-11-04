@@ -24,6 +24,7 @@ export default defineEventHandler((event: H3Event) => {
         'Disallow: /configuracoes',
         'Disallow: /sync',
         'Disallow: /ficha',
+        'Disallow: /*/ficha/',
         'Disallow: /comandos',
         '',
         `Sitemap: ${siteUrl}/sitemap.xml`,

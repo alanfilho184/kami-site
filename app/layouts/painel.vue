@@ -30,7 +30,7 @@ export default defineComponent({
     },
     computed: {
         isEditor(): boolean {
-            return this.$route.path.startsWith('/fichas/');
+            return this.$route.path.startsWith('/fichas/') || /^\/\d+\/ficha(?:\/|$)/.test(this.$route.path);
         },
         isReading(): boolean {
             return this.isEditor && this.$route.query.ver === '1';

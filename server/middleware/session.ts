@@ -15,6 +15,7 @@ const noindexPrefixes = [
     '/sair',
     '/ficha'
 ];
+const noindexPattern = /^\/\d+\/ficha(?:\/|$)/;
 
 const sessionService = createSessionService();
 
@@ -33,7 +34,7 @@ export default defineEventHandler(async event => {
         return;
     }
 
-    if (matchesPrefix(path, noindexPrefixes)) {
+    if (matchesPrefix(path, noindexPrefixes) || noindexPattern.test(path)) {
         setHeader(event, 'x-robots-tag', 'noindex, nofollow');
         setHeader(event, 'cache-control', 'private, no-store');
     }

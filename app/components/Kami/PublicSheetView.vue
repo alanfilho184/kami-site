@@ -1,13 +1,40 @@
 <script lang="ts">
-import { createError, defineNuxtComponent, useHead, useRequestFetch, useRoute } from '#app';
+import { defineNuxtComponent, useHead } from '#app';
+import { computed, type PropType } from 'vue';
 import type { SheetDetail } from '~~/shared/types/sheet';
 import { errorStatus } from '~~/shared/utils/http-error';
 
 export default defineNuxtComponent({
-    name: 'PublicSheetPage',
-    setup() {
+    name: 'KamiPublicSheetView',
+    props: {
+        sheet: {
+            type: Object as PropType<SheetDetail | null>,
+            default: null
+        },
+        requiresPassword: {
+            type: Boolean,
+            default: false
+        },
+        unavailable: {
+            type: Boolean,
+            default: false
+        },
+        userId: {
+            type: Number,
+            required: true
+        },
+        sheetName: {
+            type: String,
+            required: true
+        },
+        preferredId: {
+            type: Number as PropType<number | null>,
+            default: null
+        }
+    },
+    setup(props) {
         useHead({
-            title: 'Ficha - Kami',
+            title: computed(() => (props.sheet ? `${props.sheet.name} - Kami` : 'Ficha - Kami')),
             meta: [
                 {
                     name: 'description',
@@ -17,73 +44,19 @@ export default defineNuxtComponent({
             ]
         });
     },
-    async asyncData() {
-        const route = useRoute();
-        const raw = route.params.slug;
-        const parts = Array.isArray(raw) ? raw : typeof raw === 'string' ? [raw] : [];
-        const userId = Number(parts[0]);
-        const sheetName = parts[1] ?? '';
-
-        if (parts.length !== 2 || !Number.isInteger(userId) || userId <= 0 || !sheetName) {
-            throw createError({ statusCode: 404, statusMessage: 'Ficha não encontrada' });
-        }
-
-        const requestFetch = useRequestFetch();
-
-        try {
-            const sheet = await requestFetch<SheetDetail>(`/api/ficha/${userId}/${encodeURIComponent(sheetName)}`);
-
-            return {
-                sheet,
-                requiresPassword: false,
-                unavailable: false,
-                userId,
-                sheetName
-            };
-        } catch (error) {
-            const status = errorStatus(error);
-
-            if (status === 401) {
-                return {
-                    sheet: null,
-                    requiresPassword: true,
-                    unavailable: false,
-                    userId,
-                    sheetName
-                };
-            }
-
-            if (status === 404) {
-                throw createError({ statusCode: 404, statusMessage: 'Ficha não encontrada' });
-            }
-
-            return {
-                sheet: null,
-                requiresPassword: false,
-                unavailable: true,
-                userId,
-                sheetName
-            };
-        }
-    },
     data() {
         return {
-            sheet: null as SheetDetail | null,
-            requiresPassword: false,
-            unavailable: false,
-            userId: 0,
-            sheetName: '',
             password: '',
             passwordError: '',
             submitting: false
         };
     },
-    mounted() {
-        if (this.sheet) {
-            document.title = `${this.sheet.name} - Kami`;
-        }
-    },
     methods: {
+        accessUrl(): string {
+            const path = `/api/ficha/${this.userId}/${encodeURIComponent(this.sheetName)}/acesso`;
+
+            return this.preferredId ? `${path}?id=${this.preferredId}` : path;
+        },
         async submitPassword(): Promise<void> {
             if (this.submitting || !this.password) {
                 return;
@@ -93,7 +66,7 @@ export default defineNuxtComponent({
             this.passwordError = '';
 
             try {
-                await $fetch(`/api/ficha/${this.userId}/${encodeURIComponent(this.sheetName)}/acesso`, {
+                await $fetch(this.accessUrl(), {
                     method: 'POST',
                     body: { password: this.password }
                 });

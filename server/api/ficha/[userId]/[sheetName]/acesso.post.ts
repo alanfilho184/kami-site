@@ -28,6 +28,18 @@ function readSheetName(event: H3Event): string {
     }
 }
 
+function readPreferredId(event: H3Event): number | null {
+    const raw = getQuery(event).id;
+
+    if (typeof raw !== 'string' || raw.length === 0) {
+        return null;
+    }
+
+    const id = Number(raw);
+
+    return Number.isInteger(id) && id > 0 ? id : null;
+}
+
 export default defineEventHandler(async (event: H3Event): Promise<void | AccessErrorResponse> => {
     assertSameOrigin(event);
     setHeader(event, 'X-Robots-Tag', 'noindex, nofollow');
@@ -35,6 +47,7 @@ export default defineEventHandler(async (event: H3Event): Promise<void | AccessE
 
     const userId = Number(getRouterParam(event, 'userId'));
     const sheetName = readSheetName(event);
+    const preferredId = readPreferredId(event);
 
     if (!Number.isInteger(userId) || userId <= 0 || !sheetName) {
         setResponseStatus(event, 404);
@@ -62,7 +75,7 @@ export default defineEventHandler(async (event: H3Event): Promise<void | AccessE
     }
 
     try {
-        const row = await findPublicSheet(userId, sheetName);
+        const row = await findPublicSheet(userId, sheetName, preferredId);
 
         if (!row) {
             setResponseStatus(event, 404);

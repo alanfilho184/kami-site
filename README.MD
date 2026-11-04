@@ -28,13 +28,13 @@ O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJ
 - Login em `/entrar`, saída em `/sair` e sessão opaca em `site_sessions`, com cookie `kami_sessao` HttpOnly e proteção CSRF por origem.
 - Painel em `/painel` com conta, contagens reais e últimas fichas atualizadas.
 - `/fichas` editável: criar, renomear, duplicar e excluir, com badges de pública, ao vivo e legada.
-- `/fichas/:id` com seções e os cinco tipos de atributo, salvamento explícito, Ctrl+S, aviso de saída e prévia.
+- `/:userId/ficha/:sheetName` com seções, os cinco tipos de atributo, salvamento explícito, Ctrl+S, aviso de saída e modo leitura; a mesma URL abre a ficha pública para quem não é o dono.
 - Fichas `legacy` normalizam na leitura e gravam o formato novo no primeiro save.
 - Concorrência por `last_use`: duas abas não sobrescrevem uma à outra; o conflito oferece recarregar.
 - `/ao-vivo` para as fichas vinculadas ao Discord (`irt_sheets`), somente leitura até a D5.
 - `/macros` somente leitura, com aviso de que o editor está em desenvolvimento.
 - `/configuracoes` com username, status do Discord e troca de senha mediante a senha atual.
-- Página de ficha pública em desenvolvimento em `/ficha` e `/ficha/:userId/:sheetName`.
+- Ficha pública na mesma URL do editor, com `noindex`, senha opcional e cookie de acesso; `/ficha/:userId/:sheetName` e `/fichas/:id` redirecionam para a URL canônica.
 - Redirects antigos, `/comandos` com `410`, `robots.txt` e `sitemap.xml`.
 - Open Graph com imagem gerada em `public/og/kami-site.png`.
 
@@ -167,13 +167,14 @@ antes de criar qualquer migration. O guia completo está em [prisma/README.md](p
 | `/entrar`                                  | Login com e-mail e senha                  |
 | `/painel`                                  | Visão geral autenticada com `noindex`     |
 | `/fichas`                                  | Lista editável de fichas                  |
-| `/fichas/:id`                              | Editor de ficha com seções e atributos    |
+| `/:userId/ficha/:sheetName`                | Editor/leitura do dono e ficha pública    |
+| `/fichas/:id`                              | `302` para `/:userId/ficha/:sheetName`    |
 | `/ao-vivo`                                 | Fichas vinculadas ao Discord (IRT)        |
 | `/macros`                                  | Macros somente leitura                    |
 | `/configuracoes`                           | Conta, username e senha                   |
 | `/sair`                                    | Confirmação de logout                     |
 | `/login`, `/logout`, `/dashboard`, `/sync` | `302` para `/entrar`, `/sair` e `/painel` |
-| `/ficha`, `/ficha/:userId/:sheetName`      | Aviso de ficha pública em desenvolvimento |
+| `/ficha/:userId/:sheetName`                | `302` para a URL canônica da ficha        |
 | `/comandos`                                | `410 Gone`                                |
 | `/convite`, `/suporte`                     | `302` para o Discord                      |
 | `/tutoriais`, `/macro/:id/:nome`           | `302` para a landing ou seção de recursos |

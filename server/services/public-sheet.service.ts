@@ -8,7 +8,11 @@ import type { SheetRow } from './sheet.service';
  * Busca apenas fichas marcadas como públicas. Nome duplicado escolhe a mais
  * recente; fichas privadas nunca são retornadas (o chamador responde 404).
  */
-export async function findPublicSheet(userId: number, sheetName: string): Promise<SheetRow | null> {
+export async function findPublicSheet(
+    userId: number,
+    sheetName: string,
+    preferredId: number | null = null
+): Promise<SheetRow | null> {
     return queryOne<SheetRow>(SQL`
         SELECT
             s.id,
@@ -26,6 +30,7 @@ export async function findPublicSheet(userId: number, sheetName: string): Promis
         WHERE s.user_id = ${userId}
           AND s.sheet_name = ${sheetName}
           AND s.is_public = TRUE
+          AND (${preferredId}::int IS NULL OR s.id = ${preferredId})
         ORDER BY s.id DESC
         LIMIT 1
     `);

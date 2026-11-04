@@ -4,6 +4,7 @@ import type { SheetDetail } from '~~/shared/types/sheet';
 import type { SheetListItem } from '~~/shared/types/panel';
 import { formatDate } from '~~/shared/utils/formatting';
 import { errorStatus, serverErrorCode, serverErrorMessage } from '~~/shared/utils/http-error';
+import { sheetPath, sheetUrl } from '~~/shared/utils/sheet-url';
 
 const forbiddenName = /['$%]/;
 
@@ -28,6 +29,7 @@ function validateSheetName(value: string): string | null {
 function toListItem(sheet: SheetDetail): SheetListItem {
     return {
         id: sheet.id,
+        userId: sheet.userId,
         name: sheet.name,
         isPublic: sheet.isPublic,
         isLegacy: sheet.isLegacy,
@@ -91,6 +93,11 @@ export default defineNuxtComponent({
         handleError(error: unknown, fallback: string): void {
             this.errorMessage = serverErrorMessage(error) ?? fallback;
         },
+        sheetHref(sheet: SheetListItem): string {
+            const duplicated = this.sheets.filter(item => item.name === sheet.name).length > 1;
+
+            return sheetUrl(sheet.userId, sheet.name, duplicated ? sheet.id : undefined);
+        },
         async handleCreate(): Promise<void> {
             if (this.isCreating) {
                 return;
@@ -112,7 +119,7 @@ export default defineNuxtComponent({
                     body: { name: this.newSheetName.trim() }
                 });
 
-                await navigateTo(`/fichas/${sheet.id}`);
+                await navigateTo(sheetPath(sheet.userId, sheet.name));
             } catch (error) {
                 const status = errorStatus(error);
                 this.handleError(
@@ -471,7 +478,7 @@ export default defineNuxtComponent({
                                 <KamiButton
                                     size="sm"
                                     variant="primary"
-                                    :to="`/fichas/${sheet.id}`"
+                                    :to="sheetHref(sheet)"
                                 >
                                     ABRIR
                                 </KamiButton>
