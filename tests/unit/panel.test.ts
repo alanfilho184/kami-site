@@ -19,6 +19,7 @@ function createAccount(overrides: Partial<AccountRow> = {}): AccountRow {
         avatar: null,
         created_at: createdAt,
         discord_id: null,
+        is_premium: false,
         ...overrides
     };
 }
@@ -36,6 +37,7 @@ function createSummary(overrides: Partial<SummaryRow> = {}): SummaryRow {
 function createSheet(overrides: Partial<SheetRow> = {}): SheetRow {
     return {
         id: 7,
+        user_id: 42,
         sheet_name: 'Lyra Voss',
         is_public: true,
         legacy: false,
@@ -90,7 +92,8 @@ describe('serviço do painel', () => {
             email: 'lyra@example.com',
             avatar: null,
             createdAt: createdAt.toISOString(),
-            discordLinked: false
+            discordLinked: false,
+            isPremium: false
         });
         expect(result.summary).toEqual({
             sheets: 3,
@@ -101,6 +104,7 @@ describe('serviço do painel', () => {
         expect(result.recentSheets).toEqual([
             {
                 id: 7,
+                userId: 42,
                 name: 'Lyra Voss',
                 isPublic: true,
                 isLegacy: false,
@@ -116,6 +120,15 @@ describe('serviço do painel', () => {
         findSummary.mockResolvedValue(createSummary({ sheets: 'invalido' }));
 
         await expect(service.getOverview(42)).rejects.toThrow(/Contagem inválida/);
+    });
+
+    it('propaga o estado premium da conta', async () => {
+        const { service, findAccount } = createService();
+        findAccount.mockResolvedValue(createAccount({ is_premium: true }));
+
+        const account = await service.getAccount(42);
+
+        expect(account.isPremium).toBe(true);
     });
 
     it('lista fichas com limite aplicado', async () => {

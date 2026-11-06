@@ -15,8 +15,16 @@ export default defineConfig({
         },
         {
             name: 'e2e',
-            testIgnore: /.*\.setup\.ts/,
-            dependencies: ['setup']
+            testIgnore: /.*\.(setup|teardown)\.ts/,
+            dependencies: ['setup'],
+            teardown: 'cleanup'
+        },
+        {
+            name: 'cleanup',
+            testMatch: /.*\.teardown\.ts/,
+            use: {
+                storageState: 'tests/e2e/.auth/sheets.json'
+            }
         }
     ],
     use: {

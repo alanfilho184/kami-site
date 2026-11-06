@@ -11,6 +11,7 @@ function createAccountRow(overrides: Partial<AccountRow> = {}): AccountRow {
         avatar: null,
         created_at: new Date('2026-10-01T12:00:00Z'),
         discord_id: null,
+        is_premium: false,
         ...overrides
     };
 }

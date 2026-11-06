@@ -97,18 +97,27 @@ export default defineNuxtComponent({
                 <li
                     v-for="item in liveSheets"
                     :key="item.id"
-                    class="site-painel-lista__item"
+                    class="site-painel-lista__item site-painel-lista__item--link"
                 >
-                    <div class="site-painel-lista__principal">
-                        <p class="site-painel-lista__nome">{{ item.sheetName }}</p>
-                        <p class="site-painel-lista__meta">
-                            CANAL {{ item.channelId }} · MENSAGEM {{ item.messageId }}
-                        </p>
-                        <p class="site-painel-lista__meta">ÚLTIMO USO EM {{ formatLastUse(item.lastUse) }}</p>
-                    </div>
-                    <div class="site-painel-lista__selos">
-                        <KamiChip status="live">AO VIVO</KamiChip>
-                    </div>
+                    <NuxtLink
+                        :to="`/fichas/${item.sheetId}`"
+                        class="site-painel-lista__link"
+                    >
+                        <div class="site-painel-lista__principal">
+                            <p class="site-painel-lista__nome">{{ item.sheetName }}</p>
+                            <p class="site-painel-lista__meta">
+                                CANAL {{ item.channelId }} · MENSAGEM {{ item.messageId }}
+                            </p>
+                            <p class="site-painel-lista__meta">ÚLTIMO USO EM {{ formatLastUse(item.lastUse) }}</p>
+                        </div>
+                        <div class="site-painel-lista__selos">
+                            <KamiChip status="live">AO VIVO</KamiChip>
+                        </div>
+                        <span class="site-painel-lista__abrir">
+                            ABRIR
+                            <span aria-hidden="true">→</span>
+                        </span>
+                    </NuxtLink>
                 </li>
             </ul>
             <KamiEmptyState

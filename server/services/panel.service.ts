@@ -17,6 +17,7 @@ export interface AccountRow extends QueryResultRow {
     avatar: string | null;
     created_at: Date;
     discord_id: string | null;
+    is_premium: boolean;
 }
 
 export interface SummaryRow extends QueryResultRow {
@@ -91,7 +92,8 @@ export function toAccount(row: AccountRow): PanelAccount {
         email: row.email,
         avatar: row.avatar,
         createdAt: toIso(row.created_at),
-        discordLinked: Boolean(row.discord_id)
+        discordLinked: Boolean(row.discord_id),
+        isPremium: Boolean(row.is_premium)
     };
 }
 
@@ -141,7 +143,7 @@ export function createPanelService(dependencies: Partial<PanelDependencies> = {}
         dependencies.findAccount ??
         ((userId: number) =>
             queryOne<AccountRow>(SQL`
-                SELECT id, username, email, avatar, created_at, discord_id
+                SELECT id, username, email, avatar, created_at, discord_id, is_premium
                 FROM users
                 WHERE id = ${userId}
                 LIMIT 1

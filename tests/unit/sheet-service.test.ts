@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildCopyName, createSheetService, type SheetRow } from '../../server/services/sheet.service';
+import { buildCopyName, buildSheetQuota, createSheetService, type SheetRow } from '../../server/services/sheet.service';
 import {
     InvalidSheetError,
     SheetConflictError,
+    SheetLimitError,
     SheetLiveError,
     SheetNameTakenError,
     SheetNotFoundError
@@ -35,6 +36,7 @@ interface ServiceDependencies {
     findSheet: ReturnType<typeof vi.fn>;
     findSheetByName: ReturnType<typeof vi.fn>;
     findSheetName: ReturnType<typeof vi.fn>;
+    countSheets: ReturnType<typeof vi.fn>;
     insertSheet: ReturnType<typeof vi.fn>;
     updateSheetRecord: ReturnType<typeof vi.fn>;
     renameSheetRecord: ReturnType<typeof vi.fn>;
@@ -47,6 +49,7 @@ function createService() {
         findSheet: vi.fn(),
         findSheetByName: vi.fn(),
         findSheetName: vi.fn(),
+        countSheets: vi.fn().mockResolvedValue(0),
         insertSheet: vi.fn(),
         updateSheetRecord: vi.fn(),
         renameSheetRecord: vi.fn(),
@@ -145,6 +148,28 @@ describe('serviço de fichas', () => {
         await expect(service.createSheet(42, 'nome de $criança')).rejects.toThrow(InvalidSheetError);
         expect(deps.findSheetName).not.toHaveBeenCalled();
         expect(deps.insertSheet).not.toHaveBeenCalled();
+    });
+
+    it('createSheet bloqueia a conta gratuita no limite de 30 fichas', async () => {
+        const { service, deps } = createService();
+        deps.findSheetName.mockResolvedValue(null);
+        deps.countSheets.mockResolvedValue(30);
+
+        await expect(service.createSheet(42, 'Nova Ficha')).rejects.toThrow(SheetLimitError);
+        expect(deps.insertSheet).not.toHaveBeenCalled();
+    });
+
+    it('createSheet libera a conta premium mesmo acima do limite gratuito', async () => {
+        const { service, deps } = createService();
+        deps.findSheetName.mockResolvedValue(null);
+        deps.countSheets.mockResolvedValue(999);
+        deps.insertSheet.mockResolvedValue(createRow({ id: 9, sheet_name: 'Nova Ficha' }));
+
+        const detail = await service.createSheet(42, 'Nova Ficha', true);
+
+        expect(detail.id).toBe(9);
+        expect(deps.countSheets).not.toHaveBeenCalled();
+        expect(deps.insertSheet).toHaveBeenCalledWith(42, 'Nova Ficha', emptyInfo, false, false, null);
     });
 
     it('updateSheet bloquea ficha ao vivo antes de qualquer escrita', async () => {
@@ -376,6 +401,66 @@ describe('serviço de fichas', () => {
         deps.findSheet.mockResolvedValue(null);
 
         await expect(service.duplicateSheet(42, 7)).rejects.toThrow(SheetNotFoundError);
+    });
+
+    it('duplicateSheet bloqueia a conta gratuita no limite de 30 fichas', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow());
+        deps.countSheets.mockResolvedValue(30);
+
+        await expect(service.duplicateSheet(42, 7)).rejects.toThrow(SheetLimitError);
+        expect(deps.insertSheet).not.toHaveBeenCalled();
+    });
+
+    it('duplicateSheet permite a conta premium sem consultar a cota', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow());
+        deps.findSheetName.mockResolvedValue(null);
+        deps.countSheets.mockResolvedValue(30);
+        deps.insertSheet.mockResolvedValue(createRow({ id: 10, sheet_name: 'Lyra Voss (cópia)' }));
+
+        const detail = await service.duplicateSheet(42, 7, true);
+
+        expect(detail.id).toBe(10);
+        expect(deps.countSheets).not.toHaveBeenCalled();
+    });
+
+    it('getQuota devolve o limite e o saldo da conta gratuita', async () => {
+        const { service, deps } = createService();
+        deps.countSheets.mockResolvedValue(12);
+
+        await expect(service.getQuota(42, false)).resolves.toEqual({
+            used: 12,
+            limit: 30,
+            remaining: 18,
+            isPremium: false,
+            canCreate: true
+        });
+    });
+
+    it('getQuota devolve cota ilimitada para a conta premium', async () => {
+        const { service, deps } = createService();
+        deps.countSheets.mockResolvedValue(80);
+
+        await expect(service.getQuota(42, true)).resolves.toEqual({
+            used: 80,
+            limit: null,
+            remaining: null,
+            isPremium: true,
+            canCreate: true
+        });
+    });
+});
+
+describe('buildSheetQuota', () => {
+    it('nunca deixa o saldo ficar negativo acima do limite', () => {
+        expect(buildSheetQuota(34, false)).toEqual({
+            used: 34,
+            limit: 30,
+            remaining: 0,
+            isPremium: false,
+            canCreate: false
+        });
     });
 });
 

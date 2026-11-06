@@ -1,8 +1,8 @@
 # Kami - site
 
 Site público do Kami: landing, estatísticas, ficha de amostra, documentos legais,
-cadastro, painel do jogador e editor de fichas. O projeto está com **D2, D2.1, D2.2 e
-D3** concluídas no desenvolvimento; a próxima entrega é a D4 (fichas públicas) e o
+cadastro, painel do jogador e editor de fichas. O projeto está com **D2, D2.1, D2.2,
+D2.3, D3 (com D3.1–D3.4) e D4 (com D4.1–D4.2)** concluídas no desenvolvimento; o
 release `6.2.0` aguarda migração no `kami_prod`, revisão jurídica e promoção.
 
 **Versão de desenvolvimento:** `6.2.0` (produção: `6.0.0`).
@@ -27,7 +27,9 @@ O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJ
 - Cadastro em `/cadastrar` com username, e-mail, senha, aceite dos termos e login automático.
 - Login em `/entrar`, saída em `/sair` e sessão opaca em `site_sessions`, com cookie `kami_sessao` HttpOnly e proteção CSRF por origem.
 - Painel em `/painel` com conta, contagens reais e últimas fichas atualizadas.
+- Acessos rápidos no painel, últimas fichas clicáveis com `ABRIR`, fichas em cards com busca/filtros e linhas ao vivo clicáveis.
 - `/fichas` editável: criar, renomear, duplicar e excluir, com badges de pública, ao vivo e legada.
+- Limite de 30 fichas por conta gratuita, contando também legadas e ao vivo; contas com `users.is_premium = true` não têm limite. A UI mostra a cota e bloqueia criação/duplicação no limite.
 - `/:userId/ficha/:sheetName` com seções, os cinco tipos de atributo, salvamento explícito, Ctrl+S, aviso de saída e modo leitura; a mesma URL abre a ficha pública para quem não é o dono.
 - Fichas `legacy` normalizam na leitura e gravam o formato novo no primeiro save.
 - Concorrência por `last_use`: duas abas não sobrescrevem uma à outra; o conflito oferece recarregar.
@@ -36,6 +38,7 @@ O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJ
 - `/configuracoes` com username, status do Discord e troca de senha mediante a senha atual.
 - Ficha pública na mesma URL do editor, com `noindex`, senha opcional e cookie de acesso; `/ficha/:userId/:sheetName` e `/fichas/:id` redirecionam para a URL canônica.
 - Redirects antigos, `/comandos` com `410`, `robots.txt` e `sitemap.xml`.
+- Notificações toast globais para sucesso, aviso e erro, com ação, tempo configurável, fila e acessibilidade.
 - Open Graph com imagem gerada em `public/og/kami-site.png`.
 
 ## Requisitos

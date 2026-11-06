@@ -19,6 +19,7 @@ function createRow(overrides: Partial<SessionRow> = {}): SessionRow {
         user_id: 42,
         username: 'lyra',
         email: 'lyra@example.com',
+        is_premium: false,
         ...overrides
     };
 }
@@ -66,9 +67,22 @@ describe('serviço de sessão', () => {
 
         const session = await service.find(token);
 
-        expect(session?.user).toEqual({ id: 42, username: 'lyra', email: 'lyra@example.com' });
+        expect(session?.user).toEqual({
+            id: 42,
+            username: 'lyra',
+            email: 'lyra@example.com',
+            isPremium: false
+        });
         expect(session?.tokenHash).toBe(hashSessionToken(token));
         expect(execute).not.toHaveBeenCalled();
+    });
+
+    it('devolve o estado premium atual da conta na sessão', async () => {
+        const { service } = createService(createRow({ is_premium: true }));
+
+        const session = await service.find(token);
+
+        expect(session?.user.isPremium).toBe(true);
     });
 
     it('renova last_seen_at depois de uma hora', async () => {

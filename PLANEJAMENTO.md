@@ -269,19 +269,22 @@ posterior; a D2.1 já permite que novos usuários criem conta no site.
 | D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev  |
 | D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev  |
 | D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev  |
+| D2.3    | Painel e acessos rápidos         | `6.2.0` (dev)   | Concluída no dev  |
 | D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev  |
 | D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev  |
 | D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev  |
 | D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev  |
+| D3.4    | Notificações toast globais       | `6.2.0` (dev)   | Concluída no dev  |
 | D4      | Fichas públicas                  | `6.2.0` (dev)   | Concluída no dev  |
 | D4.1    | Modo leitura do dono             | `6.2.0` (dev)   | Concluída no dev  |
+| D4.2    | Limite de fichas e premium       | `6.2.0` (dev)   | Concluída no dev  |
 | D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0   |
 | D6      | Tutoriais                        | —               | Fora desta versão |
 
-A versão de desenvolvimento é `6.2.0`; a produção continua `6.0.0`. A D3 e a D4
-estão concluídas no desenvolvimento e o release `6.2.0` fica pendente de migração no
-`kami_prod`, revisão jurídica e promoção. D2, D2.1, D2.2, D3 e D4 são commits dentro
-da 6.2.0; não há bump de versão por entrega. A D0 fica registrada como `0.1.0`,
+A versão de desenvolvimento é `6.2.0`; a produção continua `6.0.0`. A D3, a D3.4, a D4 e a
+D4.2 estão concluídas no desenvolvimento e o release `6.2.0` fica pendente de migração no
+`kami_prod`, revisão jurídica e promoção. D2, D2.1, D2.2, D2.3, D3, D3.4, D4 e D4.2 são
+commits dentro da 6.2.0; não há bump de versão por entrega. A D0 fica registrada como `0.1.0`,
 o histórico da primeira fundação do site.
 
 ### D0 - Fundação
@@ -471,6 +474,29 @@ Resultado em 31/10/2026:
 - painel validado com login real no Postgres local;
 - IRT e macros ficam como leitura até D5 e a definição do editor de macros;
 - a revogação de sessões na troca de senha fica como pendência de hardening.
+
+### D2.3 - Painel e acessos rápidos
+
+**Objetivo:** transformar o painel em um centro de comando, priorizando o que o usuário acessa com frequência.
+
+**Estado:** concluída no desenvolvimento em 05/11/2026, dentro da `6.2.0`.
+
+Escopo:
+
+- cabeçalho com `NOVA FICHA` (abre `/fichas?nova=1` com foco no campo) e `VER TODAS AS FICHAS`;
+- quatro acessos rápidos clicáveis (Fichas, Públicas, Ao vivo e Macros) com ícone, contagem, subtexto e seta;
+- os antigos cards grandes de atalho foram removidos para não duplicar a navbar;
+- “Continuar de onde parou” com as últimas fichas em linhas inteiras clicáveis, botão visível `ABRIR →` e link `VER TODAS` no cabeçalho do painel;
+- conta em painel secundário ao lado das fichas no desktop, com `CONFIGURAÇÕES` e `SAIR`;
+- `/fichas` ganhou busca por nome e filtros `TODAS`, `PÚBLICAS`, `AO VIVO` e `LEGADAS`, com contagem e deep link por `?filtro=publicas|vivas|legadas`; cada ficha vira um card com código, nome, data, badges e ações;
+- `/configuracoes` alinha os painéis PERFIL/SENHA em altura, com as ações no rodapé e uma coluna abaixo de 900px;
+- `/ao-vivo` também abre a ficha vinculada por linha clicável;
+- layout em duas colunas no desktop e uma no mobile; sem rolagem horizontal em 360 px.
+
+Resultado em 05/11/2026:
+
+- 4 E2E novos cobrem acessos rápidos, linha recente/ABRIR, filtros de fichas e foco de nova ficha;
+- 172 testes unitários e 66 E2E aprovados + 1 skip no build de produção.
 
 ### D3 - Editor de fichas
 
@@ -666,6 +692,25 @@ Resultado em 03/11/2026:
 - 6 E2E novos em `tests/e2e/sheets-mobile.spec.ts` (barra inferior, posicionamento, foco/scroll dos modais, lightbox e navbar);
 - 137 testes unitários e 53 E2E no build de produção (47 anteriores + 6 novos, 1 skip).
 
+### D3.4 - Notificações toast globais
+
+**Objetivo:** centralizar o feedback transitório do site em um toast reutilizável, sem histórico persistido.
+
+Escopo:
+
+- store singleton em `app/utils/notify.ts`, com `success`, `info`, `warning`, `error`, `dismiss`, `dismissAll`, pausa/retomada e ação;
+- host global `KamiToastHost` em `app.vue`, com `ClientOnly` e `Teleport` para o body;
+- duração por tipo (4s/5s/8s/12s), tempo extra para mensagens longas e ações, `duration: 0` e `notify.critical` para erro persistente;
+- `items`, `dedupeKey`, fila de no máximo 4 visíveis, barra de progresso, botão de fechar e pausa no hover/foco;
+- topo-direita no desktop e topo-centro no mobile, com `role="status"`/`role="alert"`, faixa lateral listrada no espírito do `KamiBanner`, sucesso em azul (`--kami-ok`, sem verde), ação em botão compacto e respeito a `prefers-reduced-motion`;
+- migração de sucessos e erros de API da lista, editor, compartilhamento e conta; validação, conflito e ficha ao vivo continuam inline;
+- sem histórico/localStorage e sem interceptação global de `$fetch`.
+
+Resultado em 05/11/2026:
+
+- 10 testes unitários da store e 4 E2E novos (sucesso, erro, validação do rascunho e regras do editor no toast);
+- 172 testes unitários e 66 E2E aprovados + 1 skip no build de produção.
+
 ### D4 - Fichas públicas
 
 **Objetivo:** compartilhar fichas por link, com privacidade controlada.
@@ -710,7 +755,7 @@ Revisão de URL em 04/11/2026:
 - nomes duplicados históricos usam `?id=` como desambiguador na URL; fichas novas e nomes únicos ficam com a URL limpa;
 - a listagem, a criação, o redirecionamento de links antigos e a cópia de link usam o mesmo construtor de URL; renomear no editor atualiza a barra de endereço;
 - o layout do editor é escolhido no próprio componente (painel para o dono, padrão para o público), sem depender do prefixo antigo;
-- a suíte fechou com 162 testes unitários e 60 E2E aprovados + 1 skip no build de produção.
+- a suíte fechou com 172 testes unitários e 66 E2E aprovados + 1 skip no build de produção.
 
 ### D4.1 - Modo leitura do dono
 
@@ -732,7 +777,7 @@ Aceite:
 
 - entrar na leitura mostra alterações não salvas e sair mantém o rascunho no editor;
 - o modo leitura não exibe tipo/largura de seção, sidebar, inspetor ou barra de ações; os únicos controles são os atalhos de edição do `KamiSheetView`;
-- os atalhos salvam a ficha automaticamente e mostram erro de conflito/validação no cabeçalho da leitura;
+- os atalhos salvam a ficha automaticamente; o cabeçalho mostra apenas `SALVANDO...`/`SALVO AUTOMATICAMENTE.` e os erros vão para o toast;
 - o atalho funciona no desktop e a barra inferior mobile some na leitura;
 - a URL com `?ver=1` abre direto no modo leitura.
 
@@ -744,7 +789,38 @@ Resultado em 04/11/2026:
 Revisão em 04/11/2026:
 
 - atalhos de barra, lista, descrição e status ligados no modo leitura do dono, com salvamento automático (debounce de 700 ms) e flush ao sair da leitura;
-- 1 E2E novo cobre barra, lista, descrição e status com persistência após recarregar; a suíte fechou com 162 unitários e 60 E2E aprovados + 1 skip.
+- 1 E2E novo cobre barra, lista, descrição e status com persistência após recarregar; a suíte fechou com 172 unitários e 66 E2E aprovados + 1 skip.
+
+### D4.2 - Limite de fichas e premium
+
+**Objetivo:** evitar abuso mantendo a plataforma gratuita, com um limite generoso e exceções manuais para contas premium.
+
+**Estado:** concluída no desenvolvimento em 05/11/2026, dentro da `6.2.0`.
+
+Escopo:
+
+- limite de `SHEET_LIMIT_FREE` = 30 fichas por conta, contando normais, legadas e vinculadas ao Discord;
+- `users.is_premium = true` remove o limite; a ativação continua manual no banco, sem fluxo público de assinatura;
+- `createSheet` e `duplicateSheet` validam a cota no servidor e respondem `403` com `sheet_limit_reached`;
+- `GET /api/fichas/limite` expõe `used`, `limit`, `remaining`, `isPremium` e `canCreate`;
+- `/fichas` mostra `usadas / 30`, desabilita criação e duplicação no limite e atualiza a cota após criar, duplicar ou excluir;
+- painel e configurações mostram o plano; a conta premium exibe `ILIMITADO`/`SEM LIMITE`;
+- fichas acima do limite não são removidas; a conta volta a criar quando o total ficar abaixo de 30;
+- o teardown do E2E apaga as fichas criadas pela suíte, porque a conta de teste agora tem cota.
+
+Aceite:
+
+- a 30ª ficha é criada e a 31ª é recusada com `sheet_limit_reached`;
+- duplicar também é recusado no limite;
+- conta premium cria e duplica sem consultar a cota;
+- a UI mostra a cota e o botão de criação desabilitado no limite;
+- o limite não altera fichas existentes.
+
+Resultado em 05/11/2026:
+
+- 10 testes unitários novos cobrem criação/duplicação bloqueadas, premium ilimitado, cota gratuita, saldo acima do limite e propagação de `isPremium` no login/sessão/painel;
+- 1 E2E novo valida o contrato de `/api/fichas/limite`; a suíte fechou com 182 testes unitários e 68 E2E aprovados + 1 skip no build de produção;
+- o teardown limpou as 22 fichas antigas da conta de E2E e deixa a conta zerada para a próxima execução.
 
 ### D5 - Tempo real, sincronização e hardening
 
@@ -755,7 +831,7 @@ Escopo:
 - Socket.IO na mesma porta, websocket-only, path `/socket.io`;
 - `@socket.io/postgres-adapter` com `socket_io_attachments`;
 - autenticação do socket pela mesma sessão opaca;
-- salas por usuário e por ficha; eventos `ficha-alterada` e `ficha-excluida`;
+- salas de usuário (`user-{id}`), de ficha (`sheet-{id}`) e de serviço (`service:sheets`, `service:users`), autenticadas por sessão ou token de serviço, com eventos em inglês (`sheet.updated`, `sheet.deleted`);
 - outbox `sheet_sync_queue` para atualizações de IRT;
 - consumo pelo bot com idempotência, retry e dead-letter;
 - sincronização site → bot por código (`site_sync_codes`);
@@ -1026,7 +1102,7 @@ date_trunc('milliseconds', last_use) = $3`; se 0 linhas, `409` com opção de re
 - Autenticação pela sessão opaca no handshake; sem token em query string.
 - `@socket.io/postgres-adapter` com tabela `socket_io_attachments`; permite múltiplas
   instâncias sem Redis.
-- Salas: `usuario-{id}` e `ficha-{id}`; eventos `ficha-alterada` e `ficha-excluida`.
+- Salas: `user-{id}` e `sheet-{id}` para pessoas; `service:sheets` e `service:users` para bot e workers; eventos `sheet.updated` e `sheet.deleted`.
 - Eco do próprio cliente silenciado para não reaplicar estado.
 - IRT: o site grava a intenção em `sheet_sync_queue`; o bot consome, aplica no Discord e marca
   processado. Idempotência por `id` da fila; retry com backoff; dead-letter após N tentativas.
@@ -1254,3 +1330,6 @@ Cloudflare (DNS + proxy + health check / failover)
 | 04/11/2026 | Ficha pública sempre `noindex` e fora do sitemap                  | Compartilhamento por link direto, não por busca                        |
 | 04/11/2026 | URL única `/:userId/ficha/:sheetName` para editor e público       | Copiar a aba já gera o link; `/fichas/:id` e `/ficha/...` redirecionam |
 | 04/11/2026 | `?id=` só para nomes duplicados históricos                        | Mantém URLs limpas e preserva o acesso às fichas antigas               |
+| 05/11/2026 | Toast global com store singleton e host único em `app.vue`        | Feedback consistente, sem duplicar banners e sem histórico local       |
+| 05/11/2026 | Painel com acessos rápidos e últimas fichas clicáveis             | O resumo vira navegação e a lista recente deixa de ser só leitura      |
+| 05/11/2026 | Limite de 30 fichas por conta e premium ilimitado                 | Uso atual cabe com folga; exceções são ativadas manualmente no banco   |

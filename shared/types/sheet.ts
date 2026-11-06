@@ -127,6 +127,16 @@ export interface SheetDetail {
     layout: SheetLayout | null;
 }
 
+export interface SheetQuota {
+    used: number;
+    /** Limite da conta gratuita; `null` quando a conta é premium. */
+    limit: number | null;
+    /** Fichas que ainda podem ser criadas; `null` quando não há limite. */
+    remaining: number | null;
+    isPremium: boolean;
+    canCreate: boolean;
+}
+
 export interface SheetCreateInput {
     name: string;
 }
@@ -157,5 +167,11 @@ export interface SheetSharingInput {
 export interface SheetErrorResponse {
     message: string;
     code?:
-        'invalid_sheet' | 'invalid_password' | 'sheet_not_found' | 'sheet_conflict' | 'sheet_name_taken' | 'sheet_live';
+        | 'invalid_sheet'
+        | 'invalid_password'
+        | 'sheet_not_found'
+        | 'sheet_conflict'
+        | 'sheet_name_taken'
+        | 'sheet_live'
+        | 'sheet_limit_reached';
 }

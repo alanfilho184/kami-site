@@ -55,6 +55,23 @@ async function expectNoHorizontalScroll(page: Page): Promise<void> {
     expect(scrolls).toBe(false);
 }
 
+async function saveSheet(page: Page): Promise<void> {
+    const saveButton = page.locator('.site-editor__acoes-fixas').getByRole('button', { name: 'SALVAR' });
+    const topo = page.locator('.site-editor__topo');
+    const previousVersion = await topo.getAttribute('data-sheet-version');
+    const saved = page.waitForResponse(response => {
+        const path = new URL(response.url()).pathname;
+
+        return (
+            response.request().method() === 'PATCH' && /^\/api\/fichas\/\d+$/.test(path) && response.status() === 200
+        );
+    });
+
+    await saveButton.click();
+    await saved;
+    await expect(topo).not.toHaveAttribute('data-sheet-version', previousVersion ?? '');
+}
+
 test('mobile: barra inferior fixa salva a ficha e não duplica as ações do topo', async ({ page }) => {
     test.setTimeout(60_000);
     test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
@@ -79,8 +96,8 @@ test('mobile: barra inferior fixa salva a ficha e não duplica as ações do top
         await page.locator('#atributo-nome-0-0').fill('Registro');
         await page.locator('#atributo-valor-0-0').fill('Teste mobile.');
 
-        await page.locator('.site-editor__acoes-fixas').getByRole('button', { name: 'SALVAR' }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         await page.locator('.site-editor__acoes-fixas').getByRole('button', { name: 'Visualizar ficha' }).click();
         await expect(page.locator('.site-editor__leitura')).toBeVisible();

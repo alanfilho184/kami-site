@@ -22,6 +22,7 @@ import { formatDateTime } from '~~/shared/utils/formatting';
 import { SHEET_DESCRIPTION_MAX_LENGTH, SHEET_TEXT_MAX_LENGTH } from '~~/shared/constants/sheet';
 import { errorStatus, serverErrorCode, serverErrorMessage } from '~~/shared/utils/http-error';
 import { sheetPath } from '~~/shared/utils/sheet-url';
+import { notify } from '~/utils/notify';
 import {
     clampAttributeRows,
     clampAttributeSpan,
@@ -766,14 +767,11 @@ export default defineNuxtComponent({
             readingSaveTimer: null as number | null,
             readingSaveQueued: false,
             readingSaveStatus: '',
-            readingSaveError: '',
             readingDirty: false,
             sharingPublic: false,
             sharingPassword: '',
             sharingRemovePassword: false,
             sharingSaving: false,
-            sharingError: '',
-            sharingNotice: '',
             expandedLists: [] as SheetAttribute[],
             dragSectionIndex: null as number | null,
             dragOverSectionIndex: null as number | null,
@@ -788,9 +786,7 @@ export default defineNuxtComponent({
             showDeleteConfirm: false,
             conflict: false,
             liveBlocked: false,
-            brokenImages: [] as string[],
-            errorMessage: '',
-            successMessage: ''
+            brokenImages: [] as string[]
         };
     },
     computed: {
@@ -1052,12 +1048,8 @@ export default defineNuxtComponent({
             this.barSettingsAttribute = null;
             this.clearDrag();
         },
-        clearMessages(): void {
-            this.errorMessage = '';
-            this.successMessage = '';
-        },
         handleError(error: unknown, fallback: string): void {
-            this.errorMessage = serverErrorMessage(error) ?? fallback;
+            notify.critical(serverErrorMessage(error) ?? fallback);
         },
         asList(value: SheetAttribute['value']): SheetListValue {
             return value as SheetListValue;
@@ -1076,7 +1068,6 @@ export default defineNuxtComponent({
             const step = bar.step > 0 ? bar.step : 1;
 
             bar.actual = Math.min(bar.max, Math.max(bar.min, bar.actual + payload.delta * step));
-            this.clearMessages();
             this.queueReadingSave();
         },
         handleAdjustQuantity(payload: { section: number; attribute: number; index: number; delta: number }): void {
@@ -1096,7 +1087,6 @@ export default defineNuxtComponent({
             const next = Math.max(1, (Number.isFinite(current) ? current : 1) + payload.delta);
 
             item.quantity = String(next).slice(0, 32);
-            this.clearMessages();
             this.queueReadingSave();
         },
         handleAddListItem(payload: { section: number; attribute: number }): void {
@@ -1113,7 +1103,6 @@ export default defineNuxtComponent({
             }
 
             list.items.push({ name: 'Novo item', quantity: '1' });
-            this.clearMessages();
             this.queueReadingSave();
         },
         handleRemoveListItem(payload: { section: number; attribute: number; index: number }): void {
@@ -1124,7 +1113,6 @@ export default defineNuxtComponent({
             }
 
             this.asList(attribute.value).items.splice(payload.index, 1);
-            this.clearMessages();
             this.queueReadingSave();
         },
         handleMoveListItem(payload: { section: number; attribute: number; from: number; to: number }): void {
@@ -1142,7 +1130,6 @@ export default defineNuxtComponent({
             }
 
             items.splice(Math.max(0, Math.min(payload.to, items.length)), 0, item);
-            this.clearMessages();
             this.queueReadingSave();
         },
         handleUpdateListItemName(payload: { section: number; attribute: number; index: number; value: string }): void {
@@ -1159,7 +1146,6 @@ export default defineNuxtComponent({
             }
 
             item.name = payload.value;
-            this.clearMessages();
             this.queueReadingSave();
         },
         attributeTypeLabel(type: SheetAttributeType): string {
@@ -1242,7 +1228,6 @@ export default defineNuxtComponent({
             this.readingSaveQueued = false;
             this.readingDirty = false;
             this.readingSaveStatus = '';
-            this.readingSaveError = '';
             this.settingsOpen = false;
             this.barSettingsAttribute = null;
             this.showDeleteConfirm = false;
@@ -1266,7 +1251,6 @@ export default defineNuxtComponent({
             }
 
             this.readingDirty = true;
-            this.readingSaveError = '';
             this.readingSaveStatus = '';
             this.cancelReadingSave();
             this.readingSaveTimer = window.setTimeout(() => {
@@ -1316,8 +1300,6 @@ export default defineNuxtComponent({
             this.sharingPublic = this.sheet?.isPublic ?? false;
             this.sharingPassword = '';
             this.sharingRemovePassword = false;
-            this.sharingError = '';
-            this.sharingNotice = '';
         },
         closeSettings(): void {
             this.settingsOpen = false;
@@ -1329,8 +1311,6 @@ export default defineNuxtComponent({
             }
 
             this.sharingSaving = true;
-            this.sharingError = '';
-            this.sharingNotice = '';
 
             const body: { version: string; isPublic: boolean; password?: string | null } = {
                 version: this.sheet.version,
@@ -1352,10 +1332,18 @@ export default defineNuxtComponent({
                 this.sheet = updated;
                 this.sharingPassword = '';
                 this.sharingRemovePassword = false;
-                this.sharingNotice = updated.isPublic ? 'FICHA PÚBLICA ATUALIZADA.' : 'FICHA PRIVADA.';
+                notify.success(
+                    !updated.isPublic
+                        ? 'FICHA PRIVADA.'
+                        : updated.hasPassword
+                          ? 'FICHA PÚBLICA ATUALIZADA.'
+                          : 'SENHA REMOVIDA.',
+                    { dedupeKey: 'sheet-sharing' }
+                );
             } catch (error) {
-                this.sharingError =
-                    serverErrorMessage(error) ?? 'Não foi possível salvar o compartilhamento. Tente novamente.';
+                notify.error(
+                    serverErrorMessage(error) ?? 'Não foi possível salvar o compartilhamento. Tente novamente.'
+                );
             } finally {
                 this.sharingSaving = false;
             }
@@ -1395,9 +1383,17 @@ export default defineNuxtComponent({
 
             try {
                 await navigator.clipboard.writeText(url.toString());
-                this.sharingNotice = 'LINK COPIADO.';
+                notify.success('LINK COPIADO.', {
+                    dedupeKey: 'sheet-copy',
+                    action: {
+                        label: 'ABRIR',
+                        onClick: () => {
+                            window.open(url.toString(), '_blank', 'noopener,noreferrer');
+                        }
+                    }
+                });
             } catch {
-                this.sharingError = 'Não foi possível copiar o link.';
+                notify.error('Não foi possível copiar o link.');
             }
         },
         setMode(mode: EditorMode): void {
@@ -1476,7 +1472,6 @@ export default defineNuxtComponent({
             const sectionType = this.sections[sectionIndex]?.type;
             const max = sectionType === 4 ? SHEET_GALLERY_COLUMNS_MAX : SHEET_LAYOUT_COLUMNS;
             const next = Math.min(max, Math.max(1, Math.trunc(parsed)));
-            this.clearMessages();
             const entry = this.ensureLayout(sectionIndex);
             entry.columns = next;
             entry.spans = entry.spans.map(span => clampAttributeSpan(span, next));
@@ -1491,7 +1486,6 @@ export default defineNuxtComponent({
             if (rows === null || rows === '') {
                 entry.rows = null;
                 entry.rowSpans = entry.rowSpans.map(() => 1);
-                this.clearMessages();
                 return;
             }
 
@@ -1504,7 +1498,6 @@ export default defineNuxtComponent({
             const next = Math.min(SHEET_LAYOUT_ROWS_MAX, Math.max(1, Math.trunc(parsed)));
             entry.rows = next;
             entry.rowSpans = entry.rowSpans.map(value => clampAttributeRows(value, next));
-            this.clearMessages();
         },
         handleRowsChange(sectionIndex: number, event: Event): void {
             const value = (event.target as HTMLSelectElement).value;
@@ -1515,7 +1508,6 @@ export default defineNuxtComponent({
             const entry = this.ensureLayout(sectionIndex);
 
             entry.dense = !entry.dense;
-            this.clearMessages();
         },
         setAttributeRows(sectionIndex: number, attributeIndex: number, value: number | string): void {
             const parsed = typeof value === 'number' ? value : Number(value);
@@ -1526,7 +1518,6 @@ export default defineNuxtComponent({
             }
 
             entry.rowSpans[attributeIndex] = clampAttributeRows(parsed, entry.rows ?? 1);
-            this.clearMessages();
         },
         handleAttributeRowsInput(sectionIndex: number, attributeIndex: number, event: Event): void {
             const target = event.target as HTMLInputElement;
@@ -1550,7 +1541,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.clearMessages();
             this.ensureLayout(sectionIndex).span = Math.min(SHEET_LAYOUT_COLUMNS, Math.max(1, Math.trunc(parsed)));
         },
         handleSpanInput(sectionIndex: number, event: Event): void {
@@ -1576,7 +1566,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.clearMessages();
             entry.spans[attributeIndex] = clampAttributeSpan(parsed, entry.columns);
         },
         handleAttributeSpanInput(sectionIndex: number, attributeIndex: number, event: Event): void {
@@ -1658,7 +1647,7 @@ export default defineNuxtComponent({
             }
 
             if (to.type === 1 || to.type === 3 || to.type === 5) {
-                this.errorMessage = 'Esta seção não aceita atributos.';
+                notify.warning('Esta seção não aceita atributos.');
                 return;
             }
 
@@ -1673,7 +1662,7 @@ export default defineNuxtComponent({
             }
 
             if (to.type === 4 && moving.type !== 2) {
-                this.errorMessage = 'A galeria aceita apenas imagens.';
+                notify.warning('A galeria aceita apenas imagens.');
                 return;
             }
 
@@ -1682,7 +1671,7 @@ export default defineNuxtComponent({
             }
 
             if (sourceSection !== targetSection && !this.canAddAttribute(to)) {
-                this.errorMessage = 'A seção de destino já tem o máximo de atributos.';
+                notify.warning('A seção de destino já tem o máximo de atributos.');
                 return;
             }
 
@@ -1720,7 +1709,6 @@ export default defineNuxtComponent({
                 0,
                 clampAttributeRows(typeof movedRows === 'number' ? movedRows : 1, targetLayout.rows ?? 1)
             );
-            this.clearMessages();
         },
         moveToSection(sectionIndex: number, attributeIndex: number, event: Event): void {
             const target = Number((event.target as HTMLSelectElement).value);
@@ -1752,12 +1740,6 @@ export default defineNuxtComponent({
         },
         handleSectionSelect(event: Event): void {
             this.selectSection(Number((event.target as HTMLSelectElement).value));
-        },
-        focusAlert(): void {
-            this.$nextTick(() => {
-                const banner = this.$refs.alertBanner as HTMLElement | undefined;
-                banner?.focus();
-            });
         },
         nextAttributeName(section: SheetSection, base: string): string {
             const names = new Set(section.attributes.map(attribute => attribute.name));
@@ -1898,7 +1880,6 @@ export default defineNuxtComponent({
             }
 
             header.imageWidth = clampHeaderImageWidth(parsed);
-            this.clearMessages();
         },
         setHeaderTitleSize(event: Event): void {
             const header = this.ensureLayout(this.activeSectionIndex).header;
@@ -1909,7 +1890,6 @@ export default defineNuxtComponent({
             }
 
             header.titleSize = clampHeaderTitleSize(parsed);
-            this.clearMessages();
         },
         createSpecialAttribute(section: SheetSection, type: 5 | 6): SheetAttribute {
             const attribute: SheetAttribute = {
@@ -1951,11 +1931,9 @@ export default defineNuxtComponent({
                 active: false,
                 icon: ''
             });
-            this.clearMessages();
         },
         removeStatusItem(index: number): void {
             this.activeStatusValue?.items.splice(index, 1);
-            this.clearMessages();
         },
         moveStatusItem(index: number, direction: -1 | 1): void {
             const items = this.activeStatusValue?.items;
@@ -1975,15 +1953,12 @@ export default defineNuxtComponent({
             if (item) {
                 items.splice(target, 0, item);
             }
-
-            this.clearMessages();
         },
         setStatusItemColor(index: number, event: Event): void {
             const item = this.activeStatusValue?.items[index];
 
             if (item) {
                 item.color = (event.target as HTMLInputElement).value.toLowerCase();
-                this.clearMessages();
             }
         },
         toggleStatusItemBlink(index: number): void {
@@ -1991,7 +1966,6 @@ export default defineNuxtComponent({
 
             if (item) {
                 item.blink = !item.blink;
-                this.clearMessages();
             }
         },
         toggleStatusItemActive(index: number): void {
@@ -1999,7 +1973,6 @@ export default defineNuxtComponent({
 
             if (item) {
                 item.active = !item.active;
-                this.clearMessages();
             }
         },
         handleToggleStatus(payload: { section: number; index: number }): void {
@@ -2018,7 +1991,6 @@ export default defineNuxtComponent({
             }
 
             item.active = !item.active;
-            this.clearMessages();
             this.queueReadingSave();
         },
         addTableRow(): void {
@@ -2029,11 +2001,9 @@ export default defineNuxtComponent({
             }
 
             value.rows.push(value.columns.map(() => ''));
-            this.clearMessages();
         },
         removeTableRow(index: number): void {
             this.activeTableValue?.rows.splice(index, 1);
-            this.clearMessages();
         },
         addTableColumn(): void {
             const value = this.activeTableValue;
@@ -2044,7 +2014,6 @@ export default defineNuxtComponent({
 
             value.columns.push(`Coluna ${value.columns.length + 1}`.slice(0, 32));
             value.rows.forEach(row => row.push(''));
-            this.clearMessages();
         },
         removeTableColumn(index: number): void {
             const value = this.activeTableValue;
@@ -2055,14 +2024,12 @@ export default defineNuxtComponent({
 
             value.columns.splice(index, 1);
             value.rows.forEach(row => row.splice(index, 1));
-            this.clearMessages();
         },
         updateTableColumn(index: number, event: Event): void {
             const value = this.activeTableValue;
 
             if (value) {
                 value.columns[index] = (event.target as HTMLInputElement).value.slice(0, 32);
-                this.clearMessages();
             }
         },
         updateTableCell(rowIndex: number, columnIndex: number, event: Event): void {
@@ -2070,7 +2037,6 @@ export default defineNuxtComponent({
 
             if (row) {
                 row[columnIndex] = (event.target as HTMLInputElement).value.slice(0, 128);
-                this.clearMessages();
             }
         },
         changeSectionType(section: SheetSection, event: Event): void {
@@ -2095,8 +2061,9 @@ export default defineNuxtComponent({
                 const others = section.attributes.filter(attribute => attribute.type !== 5 && attribute.type !== 6);
 
                 if (others.length > 0) {
-                    this.errorMessage =
-                        'Este tipo usa um bloco único; crie uma seção vazia para ele ou remova os atributos antes.';
+                    notify.warning(
+                        'Este tipo usa um bloco único; crie uma seção vazia para ele ou remova os atributos antes.'
+                    );
                     restore();
                     return;
                 }
@@ -2119,7 +2086,7 @@ export default defineNuxtComponent({
                 layout.header = null;
             } else if (next === 4) {
                 if (section.attributes.some(attribute => attribute.type !== 2)) {
-                    this.errorMessage = 'A galeria aceita apenas imagens; remova os outros atributos antes.';
+                    notify.warning('A galeria aceita apenas imagens; remova os outros atributos antes.');
                     restore();
                     return;
                 }
@@ -2148,7 +2115,6 @@ export default defineNuxtComponent({
             }
 
             section.type = next;
-            this.clearMessages();
 
             if (section.type === 1) {
                 this.expandedLists = this.expandedLists.filter(attribute => {
@@ -2183,7 +2149,6 @@ export default defineNuxtComponent({
                 layout.rowSpans = [1];
             }
 
-            this.clearMessages();
             this.queueReadingSave();
         },
         attributePlainValue(attribute: SheetAttribute): string {
@@ -2212,10 +2177,10 @@ export default defineNuxtComponent({
                 .map(attribute => `${attribute.name.trim() || 'Atributo'}: ${this.attributePlainValue(attribute)}`)
                 .join('\n\n');
 
-            this.clearMessages();
-
             if (text.length > SHEET_DESCRIPTION_MAX_LENGTH) {
-                this.errorMessage = `A descrição unida passa de ${SHEET_DESCRIPTION_MAX_LENGTH} caracteres. Reduza os atributos antes de converter.`;
+                notify.warning(
+                    `A descrição unida passa de ${SHEET_DESCRIPTION_MAX_LENGTH} caracteres. Reduza os atributos antes de converter.`
+                );
                 return;
             }
 
@@ -2224,7 +2189,7 @@ export default defineNuxtComponent({
 
             layout.spans = [1];
             layout.rowSpans = [1];
-            this.successMessage = 'ATRIBUTOS CONVERTIDOS EM TEXTO.';
+            notify.success('ATRIBUTOS CONVERTIDOS EM TEXTO.');
         },
         changeAttributeType(attribute: SheetAttribute, event: Event): void {
             const type = Number((event.target as HTMLSelectElement).value) as SheetAttributeType;
@@ -2267,7 +2232,6 @@ export default defineNuxtComponent({
             }
 
             this.asBar(attribute.value).color = color.toLowerCase();
-            this.clearMessages();
         },
         updateBarColor(attribute: SheetAttribute, event: Event): void {
             this.setBarColor(attribute, (event.target as HTMLInputElement).value);
@@ -2278,7 +2242,6 @@ export default defineNuxtComponent({
             }
 
             delete this.asBar(attribute.value).color;
-            this.clearMessages();
         },
         barPatternOf(attribute: SheetAttribute): 'solid' | 'segmented' {
             return attribute.type === 4 && this.asBar(attribute.value).pattern === 'segmented' ? 'segmented' : 'solid';
@@ -2295,8 +2258,6 @@ export default defineNuxtComponent({
             } else {
                 delete bar.pattern;
             }
-
-            this.clearMessages();
         },
         updateBarBackground(attribute: SheetAttribute, event: Event): void {
             if (attribute.type !== 4) {
@@ -2304,7 +2265,6 @@ export default defineNuxtComponent({
             }
 
             this.asBar(attribute.value).background = (event.target as HTMLInputElement).value.toLowerCase();
-            this.clearMessages();
         },
         clearBarBackground(attribute: SheetAttribute): void {
             if (attribute.type !== 4) {
@@ -2312,7 +2272,6 @@ export default defineNuxtComponent({
             }
 
             delete this.asBar(attribute.value).background;
-            this.clearMessages();
         },
         barBlinkEnabled(attribute: SheetAttribute): boolean {
             return attribute.type === 4 ? this.asBar(attribute.value).blink !== false : true;
@@ -2329,8 +2288,6 @@ export default defineNuxtComponent({
             } else {
                 bar.blink = false;
             }
-
-            this.clearMessages();
         },
         barFlashBelowOf(attribute: SheetAttribute): number {
             if (attribute.type !== 4) {
@@ -2353,7 +2310,6 @@ export default defineNuxtComponent({
             }
 
             this.asBar(attribute.value).flashBelow = Math.min(100, Math.max(1, Math.trunc(parsed)));
-            this.clearMessages();
         },
         updateBarFlashBelow(attribute: SheetAttribute, event: Event): void {
             this.setBarFlashBelow(attribute, (event.target as HTMLInputElement).value);
@@ -2439,7 +2395,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.clearMessages();
             this.sections.push({
                 name: `Nova seção ${this.sections.length + 1}`.slice(0, 20),
                 type: 0,
@@ -2462,7 +2417,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.clearMessages();
             this.sections.splice(index, 1);
             this.layout.splice(index, 1);
             this.activeSectionIndex = Math.min(index, this.sections.length - 1);
@@ -2648,7 +2602,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.clearMessages();
             section.attributes.push({
                 name: 'Novo atributo',
                 type: 0,
@@ -2661,7 +2614,6 @@ export default defineNuxtComponent({
             layout.rowSpans.push(1);
         },
         removeAttribute(section: SheetSection, index: number): void {
-            this.clearMessages();
             section.attributes.splice(index, 1);
             const layout = this.ensureLayout(this.sections.indexOf(section));
 
@@ -2710,27 +2662,22 @@ export default defineNuxtComponent({
             if (!this.hasChanges) {
                 if (this.isReading) {
                     this.readingSaveStatus = '';
-                    this.readingSaveError = '';
                 }
 
                 return;
             }
 
-            this.clearMessages();
-
             if (this.isReading) {
-                this.readingSaveError = '';
                 this.readingSaveStatus = 'SALVANDO...';
             }
 
             const validation = validateDraft(this.name, this.sections);
 
             if (validation) {
-                this.errorMessage = validation;
+                notify.warning(validation);
 
                 if (this.isReading) {
                     this.readingSaveStatus = '';
-                    this.readingSaveError = validation;
                 }
 
                 return;
@@ -2758,13 +2705,12 @@ export default defineNuxtComponent({
                     this.conflict = false;
                     this.liveBlocked = false;
                     this.readingSaveStatus = 'SALVO AUTOMATICAMENTE.';
-                    this.readingSaveError = '';
                     this.readingDirty = false;
                     this.syncSheetUrl(updated);
                 } else {
                     this.initializeFromSheet(updated);
                     this.selectSection(activeIndex);
-                    this.successMessage = 'FICHA SALVA.';
+                    notify.success('FICHA SALVA.', { dedupeKey: 'sheet-save' });
                     this.syncSheetUrl(updated);
                 }
             } catch (error) {
@@ -2773,23 +2719,28 @@ export default defineNuxtComponent({
 
                 if (code === 'sheet_conflict') {
                     this.conflict = true;
-                    this.errorMessage = serverErrorMessage(error) ?? 'A ficha foi alterada em outra janela.';
+                    notify.critical(serverErrorMessage(error) ?? 'A ficha foi alterada em outra janela.', {
+                        dedupeKey: 'sheet-conflict',
+                        action: {
+                            label: 'RECARREGAR',
+                            onClick: () => {
+                                void this.reloadSheet();
+                            }
+                        }
+                    });
                 } else if (code === 'sheet_live' || status === 423) {
                     this.liveBlocked = true;
-                    this.errorMessage =
+                    notify.critical(
                         serverErrorMessage(error) ??
-                        'Esta ficha está ao vivo no Discord e agora é somente leitura até a D5.';
+                            'Esta ficha está ao vivo no Discord e agora é somente leitura até a D5.',
+                        { dedupeKey: 'sheet-live' }
+                    );
                 } else {
                     this.handleError(error, 'Não foi possível salvar a ficha.');
                 }
 
                 if (this.isReading) {
                     this.readingSaveStatus = '';
-                    this.readingSaveError = this.errorMessage;
-                }
-
-                if (this.conflict || this.liveBlocked) {
-                    this.focusAlert();
                 }
             } finally {
                 this.isSaving = false;
@@ -2810,13 +2761,12 @@ export default defineNuxtComponent({
             }
 
             this.isReloading = true;
-            this.clearMessages();
 
             try {
                 const sheet = await $fetch<SheetDetail>(`/api/fichas/${this.sheet.id}`);
                 this.initializeFromSheet(sheet);
                 this.syncSheetUrl(sheet);
-                this.successMessage = 'FICHA RECARREGADA.';
+                notify.success('FICHA RECARREGADA.');
             } catch (error) {
                 this.handleError(error, 'Não foi possível recarregar a ficha.');
             } finally {
@@ -2834,14 +2784,13 @@ export default defineNuxtComponent({
             }
 
             this.initializeFromSheet(this.sheet);
-            this.successMessage = 'ALTERAÇÕES DESCARTADAS.';
+            notify.success('ALTERAÇÕES DESCARTADAS.');
         },
         async handleDelete(): Promise<void> {
             if (!this.sheet || this.isLive || this.liveBlocked || this.isDeleting) {
                 return;
             }
 
-            this.clearMessages();
             this.isDeleting = true;
 
             try {
@@ -2851,6 +2800,7 @@ export default defineNuxtComponent({
                 });
 
                 this.savedSnapshot = serializeDraft(this.name, this.sections, this.layout);
+                notify.success('FICHA EXCLUÍDA.');
                 await navigateTo('/fichas');
             } catch (error) {
                 const status = errorStatus(error);
@@ -2858,18 +2808,24 @@ export default defineNuxtComponent({
 
                 if (code === 'sheet_live' || status === 423) {
                     this.liveBlocked = true;
-                    this.errorMessage =
+                    notify.critical(
                         serverErrorMessage(error) ??
-                        'Esta ficha está ao vivo no Discord e não pode ser excluída até a D5.';
+                            'Esta ficha está ao vivo no Discord e não pode ser excluída até a D5.',
+                        { dedupeKey: 'sheet-live' }
+                    );
                 } else if (code === 'sheet_conflict') {
                     this.conflict = true;
-                    this.errorMessage = serverErrorMessage(error) ?? 'A ficha foi alterada em outra janela.';
+                    notify.critical(serverErrorMessage(error) ?? 'A ficha foi alterada em outra janela.', {
+                        dedupeKey: 'sheet-conflict',
+                        action: {
+                            label: 'RECARREGAR',
+                            onClick: () => {
+                                void this.reloadSheet();
+                            }
+                        }
+                    });
                 } else {
                     this.handleError(error, 'Não foi possível excluir a ficha.');
-                }
-
-                if (this.conflict || this.liveBlocked) {
-                    this.focusAlert();
                 }
             } finally {
                 this.isDeleting = false;
@@ -3006,13 +2962,6 @@ export default defineNuxtComponent({
                             >
                                 {{ readingSaveStatus }}
                             </p>
-                            <p
-                                v-if="readingSaveError"
-                                class="site-editor__leitura-erro"
-                                role="alert"
-                            >
-                                {{ readingSaveError }}
-                            </p>
                         </div>
                         <div class="site-editor__leitura-acoes">
                             <KamiButton
@@ -3051,6 +3000,7 @@ export default defineNuxtComponent({
                 <header
                     v-if="!isReading"
                     class="site-editor__topo"
+                    :data-sheet-version="sheet.version"
                 >
                     <div class="site-editor__topo-linha">
                         <div class="site-editor__topo-identidade">
@@ -3163,45 +3113,6 @@ export default defineNuxtComponent({
                 </KamiPanel>
 
                 <template v-else-if="!isReading">
-                    <div
-                        v-if="conflict || liveBlocked"
-                        ref="alertBanner"
-                        class="site-editor__conflito"
-                        role="alert"
-                        aria-live="assertive"
-                        tabindex="-1"
-                    >
-                        <p>
-                            {{ errorMessage || 'A ficha foi alterada em outra janela. Recarregue para continuar.' }}
-                        </p>
-                        <p v-if="liveBlocked">
-                            O rascunho local não foi salvo. Recarregar descarta estas alterações e abre a versão somente
-                            leitura.
-                        </p>
-                        <KamiButton
-                            size="sm"
-                            :disabled="isReloading"
-                            @click="reloadSheet"
-                        >
-                            {{ isReloading ? 'RECARREGANDO...' : 'RECARREGAR FICHA' }}
-                        </KamiButton>
-                    </div>
-
-                    <p
-                        v-if="successMessage"
-                        class="site-config__sucesso"
-                        role="status"
-                    >
-                        {{ successMessage }}
-                    </p>
-                    <p
-                        v-if="errorMessage && !conflict && !liveBlocked"
-                        class="kami-field__error"
-                        role="alert"
-                    >
-                        {{ errorMessage }}
-                    </p>
-
                     <div class="site-editor__seletores">
                         <div class="site-editor__seletor-modo">
                             <label
@@ -4696,20 +4607,6 @@ export default defineNuxtComponent({
                                     />
                                     <span>REMOVER SENHA ATUAL</span>
                                 </label>
-                                <p
-                                    v-if="sharingError"
-                                    class="site-editor__config-erro"
-                                    role="alert"
-                                >
-                                    {{ sharingError }}
-                                </p>
-                                <p
-                                    v-if="sharingNotice"
-                                    class="site-editor__config-ok"
-                                    role="status"
-                                >
-                                    {{ sharingNotice }}
-                                </p>
                                 <div class="site-editor__acoes">
                                     <KamiButton
                                         variant="primary"

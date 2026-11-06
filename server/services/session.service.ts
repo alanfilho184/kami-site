@@ -17,6 +17,7 @@ export interface SessionRow extends QueryResultRow {
     user_id: number;
     username: string | null;
     email: string | null;
+    is_premium: boolean;
 }
 
 export interface SessionContext {
@@ -75,7 +76,8 @@ export function createSessionService(dependencies: Partial<SessionDependencies> 
                 s.expires_at,
                 u.id AS user_id,
                 u.username,
-                u.email
+                u.email,
+                u.is_premium
             FROM site_sessions s
             INNER JOIN users u ON u.id = s.user_id
             WHERE s.token_hash = ${tokenHash}
@@ -118,7 +120,8 @@ export function createSessionService(dependencies: Partial<SessionDependencies> 
             user: {
                 id: row.user_id,
                 username: row.username,
-                email: row.email
+                email: row.email,
+                isPremium: Boolean(row.is_premium)
             },
             tokenHash
         };

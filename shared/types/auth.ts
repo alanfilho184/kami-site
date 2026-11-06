@@ -2,6 +2,7 @@ export interface AuthUser {
     id: number;
     username: string | null;
     email: string | null;
+    isPremium: boolean;
 }
 
 export interface LoginRequest {

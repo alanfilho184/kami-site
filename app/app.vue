@@ -31,4 +31,8 @@ export default defineComponent({
         <NuxtPage />
     </NuxtLayout>
     <NuxtPage v-else />
+
+    <ClientOnly>
+        <KamiToastHost />
+    </ClientOnly>
 </template>

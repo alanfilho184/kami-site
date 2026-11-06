@@ -1,9 +1,11 @@
 import type { QueryResultRow } from 'pg';
 import { hash as hashBcrypt } from 'bcryptjs';
 import SQL from 'sql-template-strings';
+import { SHEET_LIMIT_FREE } from '~~/shared/constants/sheet';
 import type {
     SheetAttributes,
     SheetDetail,
+    SheetQuota,
     SheetRenameInput,
     SheetSharingInput,
     SheetUpdateInput
@@ -18,6 +20,7 @@ import { queryOne } from '../utils/database';
 import {
     InvalidSheetError,
     SheetConflictError,
+    SheetLimitError,
     SheetLiveError,
     SheetNameTakenError,
     SheetNotFoundError
@@ -39,6 +42,10 @@ export interface SheetRow extends QueryResultRow {
 
 export interface ExistingSheetRow extends QueryResultRow {
     id: number;
+}
+
+export interface SheetCountRow extends QueryResultRow {
+    total: string | number;
 }
 
 export interface UpdateSheetRecordInput {
@@ -63,6 +70,7 @@ export interface SheetDependencies {
     findSheet: (userId: number, sheetId: number) => Promise<SheetRow | null>;
     findSheetByName: (userId: number, name: string) => Promise<SheetRow | null>;
     findSheetName: (userId: number, name: string, excludeSheetId: number) => Promise<ExistingSheetRow | null>;
+    countSheets: (userId: number) => Promise<number>;
     insertSheet: (
         userId: number,
         name: string,
@@ -110,6 +118,38 @@ export function toDetail(row: SheetRow): SheetDetail {
         updatedAt: toIso(row.last_use),
         attributes,
         layout: normalizeSheetLayout(row.sheet_layout, attributes.sections)
+    };
+}
+
+function requireCount(value: string | number, field: string): number {
+    const count = Number(value);
+
+    if (!Number.isFinite(count) || count < 0) {
+        throw new Error(`Contagem inválida em ${field}`);
+    }
+
+    return Math.trunc(count);
+}
+
+export function buildSheetQuota(used: number, isPremium: boolean): SheetQuota {
+    if (isPremium) {
+        return {
+            used,
+            limit: null,
+            remaining: null,
+            isPremium: true,
+            canCreate: true
+        };
+    }
+
+    const remaining = Math.max(0, SHEET_LIMIT_FREE - used);
+
+    return {
+        used,
+        limit: SHEET_LIMIT_FREE,
+        remaining,
+        isPremium: false,
+        canCreate: remaining > 0
     };
 }
 
@@ -200,6 +240,21 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                   AND id <> ${excludeSheetId}
                 LIMIT 1
             `));
+    const countSheets =
+        dependencies.countSheets ??
+        (async (userId: number) => {
+            const row = await queryOne<SheetCountRow>(SQL`
+                SELECT COUNT(*) AS total
+                FROM sheets
+                WHERE user_id = ${userId}
+            `);
+
+            if (!row) {
+                throw new Error('Contagem de fichas não retornou resultado');
+            }
+
+            return requireCount(row.total, 'sheets.total');
+        });
     const insertSheet =
         dependencies.insertSheet ??
         ((userId: number, name: string, attributes: unknown, legacy: boolean, isPublic: boolean, layout?: unknown) =>
@@ -349,6 +404,18 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         }
     }
 
+    async function requireSheetQuota(userId: number, isPremium: boolean): Promise<void> {
+        if (isPremium) {
+            return;
+        }
+
+        const used = await countSheets(userId);
+
+        if (used >= SHEET_LIMIT_FREE) {
+            throw new SheetLimitError();
+        }
+    }
+
     async function diagnoseWriteFailure(userId: number, sheetId: number): Promise<never> {
         const row = await findSheet(userId, sheetId);
 
@@ -396,9 +463,10 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         return toDetail(row);
     }
 
-    async function createSheet(userId: number, name: string): Promise<SheetDetail> {
+    async function createSheet(userId: number, name: string, isPremium = false): Promise<SheetDetail> {
         const sheetName = requireSheetName(name);
         await requireAvailableName(userId, sheetName);
+        await requireSheetQuota(userId, isPremium);
 
         const attributes: SheetAttributes = createEmptySheetAttributes();
         const row = await insertSheet(userId, sheetName, attributes, false, false, null);
@@ -482,12 +550,14 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         }
     }
 
-    async function duplicateSheet(userId: number, sheetId: number): Promise<SheetDetail> {
+    async function duplicateSheet(userId: number, sheetId: number, isPremium = false): Promise<SheetDetail> {
         const source = await findSheet(userId, sheetId);
 
         if (!source) {
             throw new SheetNotFoundError();
         }
+
+        await requireSheetQuota(userId, isPremium);
 
         const name = await findAvailableCopyName(userId, source.sheet_name);
         const attributes = parseStoredAttributes(source.attributes);
@@ -502,6 +572,12 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         return toDetail(row);
     }
 
+    async function getQuota(userId: number, isPremium: boolean): Promise<SheetQuota> {
+        const used = await countSheets(userId);
+
+        return buildSheetQuota(used, isPremium);
+    }
+
     return {
         getSheet,
         getSheetByName,
@@ -510,7 +586,8 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
         renameSheet,
         updateSheetSharing,
         deleteSheet,
-        duplicateSheet
+        duplicateSheet,
+        getQuota
     };
 }
 

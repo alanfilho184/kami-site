@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { SheetDetail } from '../../shared/types/sheet';
+import type { SheetDetail, SheetQuota } from '../../shared/types/sheet';
 import { sheetPath } from '../../shared/utils/sheet-url';
 
 const loginEmail = process.env.E2E_AUTH_EMAIL;
@@ -46,6 +46,18 @@ async function getSheetThroughApi(page: Page, sheetId: number): Promise<SheetDet
     return (await response.json()) as SheetDetail;
 }
 
+async function deleteCurrentSheet(page: Page, sheetId: number): Promise<void> {
+    const response = await page.request.get(`/api/fichas/${sheetId}`);
+
+    if (!response.ok()) {
+        return;
+    }
+
+    const sheet = (await response.json()) as SheetDetail;
+
+    await deleteSheetThroughApi(page, sheetId, sheet.version);
+}
+
 async function getSheetIdByName(page: Page, name: string): Promise<number> {
     const response = await page.request.get('/api/fichas');
 
@@ -60,6 +72,43 @@ async function getSheetIdByName(page: Page, name: string): Promise<number> {
 
     return item.id;
 }
+
+async function saveSheet(page: Page): Promise<void> {
+    const saveButton = page.getByRole('button', { name: 'SALVAR', exact: true });
+    const topo = page.locator('.site-editor__topo');
+    const previousVersion = await topo.getAttribute('data-sheet-version');
+    const saved = page.waitForResponse(response => {
+        const path = new URL(response.url()).pathname;
+
+        return (
+            response.request().method() === 'PATCH' && /^\/api\/fichas\/\d+$/.test(path) && response.status() === 200
+        );
+    });
+
+    await saveButton.click();
+    await saved;
+    await expect(topo).not.toHaveAttribute('data-sheet-version', previousVersion ?? '');
+}
+
+test('a cota de fichas expõe o limite da conta', async ({ page }) => {
+    const response = await page.request.get('/api/fichas/limite');
+
+    expect(response.status()).toBe(200);
+
+    const quota = (await response.json()) as SheetQuota;
+
+    expect(quota.used).toBeGreaterThanOrEqual(0);
+
+    if (quota.isPremium) {
+        expect(quota.limit).toBeNull();
+        expect(quota.remaining).toBeNull();
+        expect(quota.canCreate).toBe(true);
+    } else {
+        expect(quota.limit).toBe(30);
+        expect(quota.remaining).toBe(Math.max(0, 30 - quota.used));
+        expect(quota.canCreate).toBe(quota.used < 30);
+    }
+});
 
 test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ page }) => {
     test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
@@ -87,8 +136,8 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     await page.locator('#atributo-nome-0-0').fill('Registro de Força');
     await page.locator('#atributo-valor-0-0').fill('Levantou 12 pedras.');
 
-    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-    await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+    await saveSheet(page);
+    await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
     await page.reload();
     await waitForHydration(page);
@@ -132,8 +181,8 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
         /--attr-rows: 2/
     );
 
-    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-    await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+    await saveSheet(page);
+    await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
     const sheetId = await getSheetIdByName(page, sheetName);
     const saved = (await (await page.request.get(`/api/fichas/${sheetId}`)).json()) as SheetDetail;
@@ -173,8 +222,8 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     await descricao.locator('.site-sheetview__toggle-edicao').click();
     await expect(descricao.locator('.site-sheetview__descricao')).toHaveText('Descrição da seção de teste.');
 
-    await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-    await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+    await saveSheet(page);
+    await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
     const described = (await (await page.request.get(`/api/fichas/${sheetId}`)).json()) as SheetDetail;
 
@@ -196,7 +245,7 @@ test('cria, edita, salva, recarrega e exclui uma ficha pelo editor', async ({ pa
     await page.getByRole('button', { name: 'EXCLUIR FICHA', exact: true }).click();
     await page.getByRole('button', { name: 'CONFIRMAR EXCLUSÃO' }).click();
     await page.waitForURL('**/fichas');
-    await expect(page.locator('.site-fichas__item').filter({ hasText: sheetName })).toHaveCount(0);
+    await expect(page.locator('.site-fichas__card').filter({ hasText: sheetName })).toHaveCount(0);
 });
 
 test('o modo leitura preserva o rascunho e alterna pelo atalho', async ({ page }) => {
@@ -224,7 +273,7 @@ test('o modo leitura preserva o rascunho e alterna pelo atalho', async ({ page }
         await expect(page.locator('.site-editor__topo')).toBeVisible();
         await expect(page.locator('#atributo-valor-0-0')).toHaveValue('Ainda não salvo.');
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, sheet.version);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -240,7 +289,7 @@ test('renomear no editor atualiza a URL canônica da aba', async ({ page }) => {
         await waitForHydration(page);
 
         await page.locator('#ficha-nome').fill(newName);
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
+        await saveSheet(page);
 
         await expect(page).toHaveURL(
             new RegExp(sheetPath(sheet.userId, newName).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
@@ -252,7 +301,7 @@ test('renomear no editor atualiza a URL canônica da aba', async ({ page }) => {
     } finally {
         const current = await getSheetThroughApi(page, sheet.id);
 
-        await deleteSheetThroughApi(page, sheet.id, current.version);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -424,7 +473,7 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
         if (current.ok()) {
             const detail = (await current.json()) as SheetDetail;
 
-            await deleteSheetThroughApi(page, sheet.id, detail.version);
+            await deleteCurrentSheet(page, sheet.id);
         }
     }
 });
@@ -486,8 +535,8 @@ test('a barra guarda a cor escolhida e o preenchimento usa essa cor', async ({ p
         await alerta.blur();
 
         await page.getByRole('button', { name: 'FECHAR', exact: true }).click();
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         await page.getByRole('button', { name: 'ESTRUTURA', exact: true }).click();
 
@@ -518,8 +567,8 @@ test('a barra guarda a cor escolhida e o preenchimento usa essa cor', async ({ p
         await page.getByRole('button', { name: 'Ajustes da barra Vida' }).click();
         await page.locator('.site-editor__barra-alerta input[type="checkbox"]').uncheck();
         await page.getByRole('button', { name: 'FECHAR', exact: true }).click();
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         await page.getByRole('button', { name: 'ESTRUTURA', exact: true }).click();
         await expect(
@@ -531,7 +580,7 @@ test('a barra guarda a cor escolhida e o preenchimento usa essa cor', async ({ p
         currentVersion = semBlink.version;
         expect(semBlink.attributes.sections[0].attributes[0].value).toMatchObject({ blink: false });
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -556,8 +605,8 @@ test('cria uma seção de cabeçalho com título, imagem opcional e atributos li
         await page.locator('#atributo-nome-1-3').fill('Origem');
         await page.locator('#atributo-valor-1-3').fill('Porto Cinza');
 
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         const saved = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
 
@@ -589,8 +638,8 @@ test('cria uma seção de cabeçalho com título, imagem opcional e atributos li
             .getByRole('button', { name: 'EDITAR', exact: true })
             .click();
         await page.getByLabel('URL da imagem do cabeçalho', { exact: true }).fill('');
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         await page.getByRole('button', { name: 'ESTRUTURA', exact: true }).click();
         await expect(
@@ -606,7 +655,7 @@ test('cria uma seção de cabeçalho com título, imagem opcional e atributos li
             subtitle: 'Subtítulo'
         });
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -708,8 +757,8 @@ test('a seção de status alterna o estado ativo no editor e salva na ficha', as
         await expect(ferido).toHaveClass(/site-sheetview__status-chip--ativo/);
         await expect(ferido).toHaveClass(/site-sheetview__status-chip--blink/);
 
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         const saved = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
         const items = saved.attributes.sections[1].attributes[0].value as {
@@ -724,7 +773,7 @@ test('a seção de status alterna o estado ativo no editor e salva na ficha', as
         });
         expect(items.items[1]).toMatchObject({ id: 'st-2', active: true });
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -822,8 +871,8 @@ test('a galeria respeita as colunas por imagem e abre o lightbox com teclado e b
         await page.getByLabel('Colunas da galeria').selectOption('2');
         await expect(galeria.locator('.site-sheetview__galeria')).toHaveAttribute('style', /--gallery-cols: 2/);
 
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         const saved = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
 
@@ -833,7 +882,7 @@ test('a galeria respeita as colunas por imagem e abre o lightbox com teclado e b
             attributes: { Corpo: { span: 2, rows: 1 } }
         });
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -902,7 +951,7 @@ test('qualquer imagem abre o lightbox sem o carrossel', async ({ page }) => {
         await page.keyboard.press('Escape');
         await expect(lightbox).toHaveCount(0);
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -983,8 +1032,8 @@ test('a tabela edita células, linhas e colunas e é salva na ficha', async ({ p
 
         await tabela.getByLabel('Nome da coluna').nth(2).fill('Notas');
 
-        await page.getByRole('button', { name: 'SALVAR', exact: true }).click();
-        await expect(page.getByText('FICHA SALVA.')).toBeVisible();
+        await saveSheet(page);
+        await expect(page.getByText('FICHA SALVA.').last()).toBeVisible();
 
         const saved = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
         const value = saved.attributes.sections[1].attributes[0].value as {
@@ -1011,7 +1060,7 @@ test('a tabela edita células, linhas e colunas e é salva na ficha', async ({ p
         await expect(secao.locator('.site-sheetview__tabela th').nth(2)).toHaveText('Notas');
         await expect(secao.locator('.site-sheetview__tabela tbody td').first()).toHaveText('Corda');
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 
@@ -1056,7 +1105,7 @@ test('a API de fichas guarda versão, renomeia e detecta conflito de escrita', a
         expect(staleBody.code).toBe('sheet_conflict');
         expect(typeof staleBody.message).toBe('string');
     } finally {
-        await deleteSheetThroughApi(page, sheet.id, currentVersion);
+        await deleteCurrentSheet(page, sheet.id);
     }
 });
 

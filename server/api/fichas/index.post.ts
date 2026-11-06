@@ -45,7 +45,7 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
     }
 
     try {
-        const sheet = await sheetService.createSheet(user.id, parsed.data.name);
+        const sheet = await sheetService.createSheet(user.id, parsed.data.name, user.isPremium);
         setResponseStatus(event, 201);
         logger.info('Ficha criada', { user_id: user.id, sheet_id: sheet.id });
         return sheet;

@@ -1,8 +1,10 @@
 <script lang="ts">
 import { defineNuxtComponent, useHead, useRequestFetch } from '#app';
+import { SHEET_LIMIT_FREE } from '~~/shared/constants/sheet';
 import type { AccountResponse, PanelAccount } from '~~/shared/types/panel';
 import { formatDate } from '~~/shared/utils/formatting';
 import { errorStatus, serverErrorMessage } from '~~/shared/utils/http-error';
+import { notify } from '~/utils/notify';
 
 const usernamePattern = /^[a-zA-Z0-9_]+$/;
 
@@ -48,13 +50,11 @@ export default defineNuxtComponent({
             needsLogin: false,
             isUnavailable: false,
             isSaving: false,
-            profileMessage: '',
             profileError: '',
             currentPassword: '',
             newPassword: '',
             confirmation: '',
             isChangingPassword: false,
-            passwordMessage: '',
             passwordError: ''
         };
     },
@@ -64,6 +64,9 @@ export default defineNuxtComponent({
         },
         discordLabel(): string {
             return this.account?.discordLinked ? 'VINCULADO' : 'NÃO VINCULADO';
+        },
+        planLabel(): string {
+            return this.account?.isPremium ? 'PREMIUM · SEM LIMITE' : `GRATUITO · ${SHEET_LIMIT_FREE} FICHAS`;
         }
     },
     methods: {
@@ -72,7 +75,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.profileMessage = '';
             this.profileError = '';
             const username = this.username.trim();
 
@@ -96,7 +98,7 @@ export default defineNuxtComponent({
 
                 this.account = response.account;
                 this.username = response.account.username ?? '';
-                this.profileMessage = 'Nome de usuário atualizado.';
+                notify.success('Nome de usuário atualizado.');
             } catch (error) {
                 const status = errorStatus(error);
 
@@ -116,7 +118,6 @@ export default defineNuxtComponent({
                 return;
             }
 
-            this.passwordMessage = '';
             this.passwordError = '';
 
             if (!this.currentPassword) {
@@ -149,7 +150,7 @@ export default defineNuxtComponent({
                 this.currentPassword = '';
                 this.newPassword = '';
                 this.confirmation = '';
-                this.passwordMessage = 'Senha alterada.';
+                notify.success('Senha alterada.');
             } catch (error) {
                 const status = errorStatus(error);
 
@@ -224,6 +225,10 @@ export default defineNuxtComponent({
                             <dt>DISCORD</dt>
                             <dd>{{ discordLabel }}</dd>
                         </div>
+                        <div>
+                            <dt>PLANO</dt>
+                            <dd>{{ planLabel }}</dd>
+                        </div>
                     </dl>
 
                     <div
@@ -265,13 +270,6 @@ export default defineNuxtComponent({
                             role="alert"
                         >
                             {{ profileError }}
-                        </p>
-                        <p
-                            v-if="profileMessage"
-                            class="site-config__sucesso"
-                            role="status"
-                        >
-                            {{ profileMessage }}
                         </p>
 
                         <KamiButton
@@ -355,13 +353,6 @@ export default defineNuxtComponent({
                             role="alert"
                         >
                             {{ passwordError }}
-                        </p>
-                        <p
-                            v-if="passwordMessage"
-                            class="site-config__sucesso"
-                            role="status"
-                        >
-                            {{ passwordMessage }}
                         </p>
 
                         <KamiButton

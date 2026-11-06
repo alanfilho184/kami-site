@@ -45,7 +45,7 @@ export function createAccountService(dependencies: Partial<AccountDependencies> 
                 UPDATE users
                 SET username = ${username}
                 WHERE id = ${userId}
-                RETURNING id, username, email, avatar, created_at, discord_id
+                RETURNING id, username, email, avatar, created_at, discord_id, is_premium
             `));
     const findPassword =
         dependencies.findPassword ??

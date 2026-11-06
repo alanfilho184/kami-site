@@ -27,7 +27,7 @@ describe('serviço de cadastro', () => {
 
         expect(hash).toHaveBeenCalledWith('senha-segura');
         expect(insertUser).toHaveBeenCalledWith('lyra', 'lyra@example.com', 'hash-da-senha');
-        expect(user).toEqual({ id: 42, username: 'lyra', email: 'lyra@example.com' });
+        expect(user).toEqual({ id: 42, username: 'lyra', email: 'lyra@example.com', isPremium: false });
     });
 
     it('recusa username já cadastrado antes de calcular o hash', async () => {

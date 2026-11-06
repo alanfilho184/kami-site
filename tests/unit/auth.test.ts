@@ -12,6 +12,7 @@ function createRow(overrides: Partial<AuthUserRow> = {}): AuthUserRow {
         id: 42,
         username: 'lyra',
         email: 'lyra@example.com',
+        is_premium: false,
         password: null,
         ...overrides
     };
@@ -36,8 +37,20 @@ describe('serviço de autenticação', () => {
 
         const user = await service.authenticate('lyra@example.com', 'senha-correta');
 
-        expect(user).toEqual({ id: 42, username: 'lyra', email: 'lyra@example.com' });
+        expect(user).toEqual({ id: 42, username: 'lyra', email: 'lyra@example.com', isPremium: false });
         expect(markActive).toHaveBeenCalledWith(42);
+    });
+
+    it('devolve a conta premium no login', async () => {
+        const passwordHash = await hash('senha-correta', 4);
+        const service = createAuthService({
+            findUser: vi.fn().mockResolvedValue(createRow({ password: passwordHash, is_premium: true })),
+            markActive: vi.fn()
+        });
+
+        const user = await service.authenticate('lyra@example.com', 'senha-correta');
+
+        expect(user?.isPremium).toBe(true);
     });
 
     it('recusa a senha errada sem atualizar o último uso', async () => {

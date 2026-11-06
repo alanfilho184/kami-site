@@ -16,6 +16,7 @@ export interface AuthUserRow extends QueryResultRow {
     id: number;
     username: string | null;
     email: string | null;
+    is_premium: boolean;
     password: string | null;
 }
 
@@ -49,7 +50,7 @@ export function createAuthService(dependencies: Partial<AuthDependencies> = {}) 
         dependencies.findUser ??
         ((email: string) =>
             queryOne<AuthUserRow>(SQL`
-                SELECT id, username, email, password
+                SELECT id, username, email, is_premium, password
                 FROM users
                 WHERE lower(email) = lower(${email})
                 LIMIT 1
@@ -83,7 +84,8 @@ export function createAuthService(dependencies: Partial<AuthDependencies> = {}) 
         return {
             id: user.id,
             username: user.username,
-            email: user.email
+            email: user.email,
+            isPremium: Boolean(user.is_premium)
         };
     }
 

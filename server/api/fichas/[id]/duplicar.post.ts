@@ -24,7 +24,7 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
     }
 
     try {
-        const sheet = await sheetService.duplicateSheet(user.id, sheetId);
+        const sheet = await sheetService.duplicateSheet(user.id, sheetId, user.isPremium);
         setResponseStatus(event, 201);
         logger.info('Ficha duplicada', { user_id: user.id, sheet_id: sheet.id });
         return sheet;

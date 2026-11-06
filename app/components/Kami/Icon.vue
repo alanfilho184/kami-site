@@ -2,6 +2,7 @@
 import { defineComponent, type PropType } from 'vue';
 
 export type KamiIconName =
+    | 'alert'
     | 'arrow-down'
     | 'arrow-left'
     | 'arrow-up'
@@ -13,6 +14,7 @@ export type KamiIconName =
     | 'eye'
     | 'file'
     | 'grip'
+    | 'info'
     | 'minus'
     | 'plus'
     | 'radio'
@@ -29,6 +31,7 @@ export type KamiIconName =
  * ficam no bundle.
  */
 const iconPaths: Record<KamiIconName, string[]> = {
+    alert: ['M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z', 'M12 9v4', 'M12 17h.01'],
     'arrow-down': ['M12 5v14', 'm19 12-7 7-7-7'],
     'arrow-left': ['M19 12H5', 'm12 19-7-7 7-7'],
     'arrow-up': ['M12 19V5', 'm5 12 7-7 7 7'],
@@ -46,6 +49,7 @@ const iconPaths: Record<KamiIconName, string[]> = {
         'M10 9H8'
     ],
     grip: ['M9 5h.01', 'M9 12h.01', 'M9 19h.01', 'M15 5h.01', 'M15 12h.01', 'M15 19h.01'],
+    info: ['M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z', 'M12 11v5', 'M12 8h.01'],
     minus: ['M5 12h14'],
     plus: ['M12 5v14', 'M5 12h14'],
     radio: [

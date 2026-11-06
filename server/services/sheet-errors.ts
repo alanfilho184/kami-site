@@ -1,4 +1,5 @@
 import type { SheetErrorResponse } from '~~/shared/types/sheet';
+import { SHEET_LIMIT_FREE } from '~~/shared/constants/sheet';
 
 export type SheetErrorCode = NonNullable<SheetErrorResponse['code']>;
 
@@ -50,6 +51,17 @@ export class SheetLiveError extends SheetError {
             'Esta ficha está ao vivo no Discord e só poderá ser editada na D5. Enquanto isso, ela é somente leitura.'
         );
         this.name = 'SheetLiveError';
+    }
+}
+
+export class SheetLimitError extends SheetError {
+    constructor() {
+        super(
+            'sheet_limit_reached',
+            403,
+            `Você atingiu o limite de ${SHEET_LIMIT_FREE} fichas da conta. Exclua uma ficha para criar outra.`
+        );
+        this.name = 'SheetLimitError';
     }
 }
 

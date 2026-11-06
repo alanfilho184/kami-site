@@ -89,7 +89,8 @@ export function createRegistrationService(dependencies: Partial<RegistrationDepe
             return {
                 id: user.id,
                 username: user.username,
-                email: user.email
+                email: user.email,
+                isPremium: false
             };
         } catch (error) {
             if (isUniqueViolation(error)) {

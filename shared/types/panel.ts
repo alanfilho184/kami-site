@@ -5,6 +5,7 @@ export interface PanelAccount {
     avatar: string | null;
     createdAt: string;
     discordLinked: boolean;
+    isPremium: boolean;
 }
 
 export interface PanelSummary {

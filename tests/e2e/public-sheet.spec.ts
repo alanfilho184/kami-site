@@ -272,9 +272,18 @@ test('o modal de configurações publica a ficha e copia o link', async ({ page 
         await expect(sharing).toBeVisible();
         await sharing.getByLabel('FICHA PÚBLICA').check();
         await sharing.locator('input[type="password"]').fill('senha-modal');
-        await sharing.getByRole('button', { name: 'SALVAR COMPARTILHAMENTO' }).click();
+        const firstSave = page.waitForResponse(response => {
+            return (
+                response.request().method() === 'PATCH' &&
+                response.url().includes(`/api/fichas/${sheet.id}/publicacao`) &&
+                response.status() === 200
+            );
+        });
 
-        await expect(sharing.getByRole('status')).toHaveText('FICHA PÚBLICA ATUALIZADA.');
+        await sharing.getByRole('button', { name: 'SALVAR COMPARTILHAMENTO' }).click();
+        await firstSave;
+
+        await expect(page.locator('.kami-toast').filter({ hasText: 'FICHA PÚBLICA ATUALIZADA.' })).toBeVisible();
 
         const detail = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
 
@@ -284,15 +293,40 @@ test('o modal de configurações publica a ficha e copia o link', async ({ page 
 
         await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
         await sharing.getByRole('button', { name: 'COPIAR LINK' }).click();
-        await expect(sharing.getByRole('status')).toHaveText('LINK COPIADO.');
+        await expect(page.locator('.kami-toast').filter({ hasText: 'LINK COPIADO.' })).toBeVisible();
 
         const copied = await page.evaluate(() => navigator.clipboard.readText());
 
         expect(copied).toBe(`${baseUrl}${publicPath(sheet)}`);
 
+        const [popup] = await Promise.all([
+            page.waitForEvent('popup'),
+            page
+                .locator('.kami-toast')
+                .filter({ hasText: 'LINK COPIADO.' })
+                .getByRole('button', { name: 'ABRIR' })
+                .click()
+        ]);
+
+        await popup.waitForLoadState('domcontentloaded');
+        expect(popup.url()).toContain(publicPath(sheet));
+        await popup.close();
+        await expect(page.locator('.kami-toast').filter({ hasText: 'LINK COPIADO.' })).toHaveCount(0);
+
         await sharing.getByLabel('REMOVER SENHA ATUAL').check();
+
+        const secondSave = page.waitForResponse(response => {
+            return (
+                response.request().method() === 'PATCH' &&
+                response.url().includes(`/api/fichas/${sheet.id}/publicacao`) &&
+                response.status() === 200
+            );
+        });
+
         await sharing.getByRole('button', { name: 'SALVAR COMPARTILHAMENTO' }).click();
-        await expect(sharing.getByRole('status')).toHaveText('FICHA PÚBLICA ATUALIZADA.');
+        await secondSave;
+
+        await expect(page.locator('.kami-toast').filter({ hasText: 'SENHA REMOVIDA.' })).toBeVisible();
 
         const withoutPassword = (await (await page.request.get(`/api/fichas/${sheet.id}`)).json()) as SheetDetail;
 
