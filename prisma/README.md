@@ -15,6 +15,20 @@ o Prisma entra apenas como ferramenta de schema e migration.
 A aplicação nunca recebe DDL. As migrations são aplicadas uma vez por release,
 antes do `pm2 reload`, e não no boot do processo.
 
+## Arquivo de ambiente
+
+O `prisma.config.ts` carrega o ambiente na mesma ordem do `ecosystem.config.cjs`:
+`KAMI_ENV_FILE` quando definido, senão `/etc/kami/kami-site.env`, e por último o
+`.env` da raiz. O primeiro arquivo carregado vence, e variável já exportada no
+shell continua tendo precedência. Um `KAMI_ENV_FILE` explícito que não existe
+falha na hora, em vez de cair no `.env` por engano.
+
+Em produção, aponte o passo de migration para o arquivo da role com DDL:
+
+```bash
+KAMI_ENV_FILE=/etc/kami/migrations.env npm run db:migrate
+```
+
 ## Histórico existente
 
 As migrations em `prisma/migrations/` foram copiadas do repositório do bot com
