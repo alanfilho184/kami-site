@@ -1,16 +1,33 @@
 <script lang="ts">
-import { defineComponent } from 'vue';
+import { defineNuxtComponent, useRequestEvent, useRequestFetch } from '#app';
 import { landing } from '~~/shared/content/landing/pt-br';
+import type { AuthResponse, AuthUser } from '~~/shared/types/auth';
 import type { FooterLink } from '~/components/Kami/Footer.vue';
 
-export default defineComponent({
+export default defineNuxtComponent({
     name: 'DefaultLayout',
+    async asyncData() {
+        if (import.meta.server) {
+            const event = useRequestEvent();
+            return {
+                user: event?.context.auth?.user ?? null
+            };
+        }
+
+        const requestFetch = useRequestFetch();
+        const session = await requestFetch<AuthResponse>('/api/auth/session').catch(() => null);
+
+        return {
+            user: session?.user ?? null
+        };
+    },
     data() {
         const config = useRuntimeConfig();
 
         return {
-            botInvite: String(config.public.botInvite ?? ''),
+            user: null as AuthUser | null,
             discordUrl: String(config.public.discordInvite ?? ''),
+            botInvite: String(config.public.botInvite ?? ''),
             topbarLinks: landing.topbar.links,
             topbarSubtitle: landing.topbar.subtitle,
             topbarCta: landing.topbar.cta,
@@ -49,11 +66,13 @@ export default defineComponent({
             IR PARA O CONTEÚDO
         </a>
         <KamiTopbar
-            :bot-invite="botInvite"
             :discord-url="discordUrl"
+            :bot-invite="botInvite"
+            :authenticated="Boolean(user)"
             :subtitle="topbarSubtitle"
-            :cta="topbarCta"
-            :short-cta="topbarShortCta"
+            :cta="user ? 'PAINEL' : topbarCta"
+            :short-cta="user ? 'PAINEL' : topbarShortCta"
+            :cta-to="user ? '/painel' : '/entrar'"
             :support="topbarSupport"
             :links="topbarLinks"
         />

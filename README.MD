@@ -1,10 +1,12 @@
 # Kami - site
 
-Site público do Kami: landing, estatísticas, ficha de amostra e documentos legais.
-O projeto está na **D1** concluída; login, editor de fichas e fichas públicas ainda
-estão nas próximas entregas.
+Site público do Kami: landing, estatísticas, ficha de amostra, documentos legais,
+cadastro, painel do jogador e editor de fichas. O projeto está com **D2, D2.1, D2.2,
+D2.3, D3 (com D3.1–D3.4) e D4 (com D4.1–D4.2)** concluídas no desenvolvimento; o
+release `6.2.0` aguarda migração no `kami_prod`, revisão jurídica e promoção. A D5
+(tempo real e sincronização) está em andamento.
 
-**Versão atual:** `6.0.0`.
+**Versão de desenvolvimento:** `6.2.0` (produção: `6.0.0`).
 
 - Nuxt 4 com SSR e Vue 3 em Options API;
 - TypeScript estrito e Prettier;
@@ -14,17 +16,34 @@ estão nas próximas entregas.
 - Vitest para unidade e Playwright para fumaça;
 - deploy em duas VPS com PM2, Nginx e Cloudflare.
 
-O plano completo, incluindo as entregas D1-D5, está em [PLANEJAMENTO.md](PLANEJAMENTO.md).
+O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJAMENTO.md).
 
 ## O que existe hoje
 
 - Landing em `/` com narrativa de produto, estatísticas reais, ficha de amostra e roadmap.
 - Estatísticas com cache de 60s, fallback e estado de indisponibilidade.
-- Ficha de amostra em HTML com os cinco tipos de atributo.
+- Ficha de amostra em HTML com cabeçalho, descrição, texto, número, imagem, lista, barra, status e tabela.
 - Roadmap de macros e campanhas, sem números.
 - Jurídico em `/termos`, `/privacidade`, `/terms` e `/privacy`.
-- Página de ficha pública em desenvolvimento em `/ficha` e `/ficha/:userId/:sheetName`.
+- Cadastro em `/cadastrar` com username, e-mail, senha, aceite dos termos e login automático.
+- Login em `/entrar`, saída em `/sair` e sessão opaca em `site_sessions`, com cookie `kami_sessao` HttpOnly e proteção CSRF por origem.
+- Painel em `/painel` com conta, contagens reais e últimas fichas atualizadas.
+- Acessos rápidos no painel, últimas fichas clicáveis com `ABRIR`, fichas em cards com busca/filtros e linhas ao vivo clicáveis.
+- `/fichas` editável: criar, renomear, duplicar e excluir, com badges de pública, ao vivo e legada.
+- Limite de 30 fichas por conta gratuita, contando também legadas e ao vivo; contas com `users.is_premium = true` não têm limite. A UI mostra a cota e bloqueia criação/duplicação no limite.
+- `/:userId/ficha/:sheetName` com seções, cabeçalho, descrição, texto, número, imagem, lista, barra, status, tabela e layout por spans, salvamento explícito, Ctrl+S, aviso de saída e modo leitura; a mesma URL abre a ficha pública para quem não é o dono.
+- Tempo real entre abas no editor com Socket.IO e adapter Postgres (D5 em andamento).
+- Fichas `legacy` normalizam na leitura e gravam o formato novo no primeiro save.
+- Concorrência por `last_use`: duas abas não sobrescrevem uma à outra; o conflito oferece recarregar.
+- `/ao-vivo` para as fichas vinculadas ao Discord (`irt_sheets`), editáveis no site; o bot ativo sincroniza as mensagens e recupera edições perdidas a cada 30s.
+- `/macros` somente leitura, com aviso de que o editor está em desenvolvimento.
+- `/configuracoes` com username, troca de senha e vínculo/merge da conta do Discord.
+- Excluir uma ficha IRT remove os vínculos `irt_sheets` automaticamente; não é preciso desativar as mensagens no Discord antes.
+- Ficha pública na mesma URL do editor, com `noindex`, senha opcional e cookie de acesso; `/ficha/:userId/:sheetName` e `/fichas/:id` redirecionam para a URL canônica.
+- Vínculo de conta do Discord: o site gera um código, o bot valida com `/vincular <código>` e o site confirma o merge; fichas, IRT, configurações e flags da conta do bot passam para a conta do site, que fica como única sobrevivente.
+- Ficha pública também atualiza em tempo real sem login; a sala pública é separada, valida `is_public`, aceita senha pelo cookie da ficha e é encerrada ao despublicar.
 - Redirects antigos, `/comandos` com `410`, `robots.txt` e `sitemap.xml`.
+- Notificações toast globais para sucesso, aviso e erro, com ação, tempo configurável, fila e acessibilidade.
 - Open Graph com imagem gerada em `public/og/kami-site.png`.
 
 ## Requisitos
@@ -59,8 +78,16 @@ estatísticas como indisponíveis; `/api/health` continua respondendo `200`.
 | `NUXT_PUBLIC_DISCORD_INVITE` | público  | convite do servidor                                           |
 | `NUXT_PUBLIC_BOT_INVITE`     | público  | convite de instalação do bot                                  |
 | `DATABASE_URL`               | servidor | conexão com o Postgres (role `kami_app`)                      |
-| `SESSION_SECRET`             | servidor | 32+ bytes; assinatura de sessões e cookies                    |
+| `SESSION_SECRET`             | servidor | 32+ bytes; reservado para cookies assinados (D4)              |
+| `SYNC_CODE_SECRET`           | servidor | 32+ bytes; HMAC dos códigos de vínculo (D5)                   |
+| `BOT_SYNC_TOKEN`             | servidor | 32+ bytes; autentica o bot nas salas de serviço (D5)          |
 | `LOG_LEVEL`                  | servidor | `debug`, `info`, `warn` ou `error`                            |
+| `INSTANCE_NAME`              | servidor | nome lógico da instância (logs e Socket.IO; padrão hostname)  |
+| `LOGGER_URL`                 | servidor | URL do kami-logger; opcional, junto com `LOGGER_TOKEN`        |
+| `LOGGER_TOKEN`               | servidor | token `klp_...` de ingestão do kami-logger                    |
+| `LOG_HTTP_PAYLOADS`          | servidor | `true`/`false`; captura temporária de bodies HTTP             |
+| `LOG_WS_PAYLOADS`            | servidor | `true`/`false`; captura temporária de dados de WebSocket      |
+| `LOG_PAYLOAD_MAX_BYTES`      | servidor | teto por body/dado de log (padrão `16384`)                    |
 | `DB_POOL_MAX`                | servidor | máximo de clientes no pool                                    |
 | `DB_CONNECTION_TIMEOUT_MS`   | servidor | timeout para obter um cliente                                 |
 | `DB_STATEMENT_TIMEOUT_MS`    | servidor | timeout de cada consulta                                      |
@@ -70,19 +97,25 @@ Nunca leia `process.env` fora de `server/utils/config.ts` e nunca versione o
 
 ## Scripts
 
-| Comando                | O que faz                                |
-| ---------------------- | ---------------------------------------- |
-| `npm run dev`          | servidor de desenvolvimento              |
-| `npm run build`        | build de produção em `.output`           |
-| `npm run preview`      | pré-visualização do build                |
-| `npm start`            | sobe o build (carrega `.env` se existir) |
-| `npm run typecheck`    | `nuxt typecheck` + `vue-tsc`             |
-| `npm run test`         | testes unitários (Vitest)                |
-| `npm run test:watch`   | Vitest em modo watch                     |
-| `npm run test:e2e`     | fumaça com Playwright                    |
-| `npm run format`       | Prettier em todo o projeto               |
-| `npm run format:check` | verifica a formatação                    |
-| `npm run check`        | formato + tipos + testes + build         |
+| Comando                     | O que faz                                  |
+| --------------------------- | ------------------------------------------ |
+| `npm run dev`               | servidor de desenvolvimento                |
+| `npm run build`             | build de produção em `.output`             |
+| `npm run preview`           | pré-visualização do build                  |
+| `npm start`                 | sobe o build (carrega `.env` se existir)   |
+| `npm run typecheck`         | `nuxt typecheck` + `vue-tsc`               |
+| `npm run typecheck:fast`    | checagem rápida de `.ts` com `tsgo` (TS7)  |
+| `npm run test`              | testes unitários (Vitest)                  |
+| `npm run test:watch`        | Vitest em modo watch                       |
+| `npm run test:e2e`          | fumaça com Playwright                      |
+| `npm run db:validate`       | valida o schema Prisma                     |
+| `npm run db:status`         | compara o histórico com o banco            |
+| `npm run db:diff`           | mostra o SQL pendente entre banco e schema |
+| `npm run db:migrate`        | aplica as migrations pendentes             |
+| `npm run db:migrate:create` | cria uma migration em desenvolvimento      |
+| `npm run format`            | Prettier em todo o projeto                 |
+| `npm run format:check`      | verifica a formatação                      |
+| `npm run check`             | formato + schema + tipos + testes + build  |
 
 O E2E sobe o servidor de desenvolvimento e precisa de um navegador do Playwright:
 
@@ -91,12 +124,22 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+Os testes de login bem-sucedido usam uma conta de teste local. Defina
+`E2E_AUTH_EMAIL` e `E2E_AUTH_PASSWORD` antes de rodar; sem elas, esses testes são
+ignorados. O teste de cadastro bem-sucedido só roda com `E2E_REGISTER=1` e cria
+uma conta descartável com username e e-mail únicos. Nunca use uma conta real de produção.
+
+O estado atual tem 137 testes unitários e 54 E2E. O rate limit de login é em memória por
+processo; várias execuções seguidas do E2E no mesmo servidor podem responder `429`.
+Reinicie o servidor para zerar o contador.
+
 ## Estrutura
 
 ```txt
 app/                 aplicação Nuxt (app.vue, layout, páginas e componentes)
 server/              Nitro (api, middleware, plugins, utils e tipos)
 shared/              contratos e funções puras usadas nos dois lados
+prisma/              schema e migrations do banco compartilhado
 public/              fontes, marca, imagens e arquivos estáticos
 scripts/             utilitários de desenvolvimento, como o gerador do OG
 tests/               unit (Vitest) e e2e (Playwright)
@@ -104,21 +147,57 @@ deploy/              configuração de Nginx
 docs/                documentação de deploy
 ```
 
-A camada de dados segue o guia do backend: `api` orquestra, `services` valida,
-`controllers` executam SQL e `utils` concentram pool, config e logger. O site não
-cria tabelas nem altera o schema - isso é responsabilidade do bot.
+A camada de dados segue o guia do projeto: `api` orquestra, `services` valida e
+`utils` concentram pool e config. O `server/logs/` concentra o logger: uma linha
+JSON no stdout e, quando `LOGGER_URL`/`LOGGER_TOKEN` existem, uma cópia
+assíncrona para o kami-logger. A captura de bodies HTTP e dados de WebSocket é
+temporária e controlada por `LOG_HTTP_PAYLOADS`/`LOG_WS_PAYLOADS`. O runtime usa
+`pg` + `sql-template-strings`; o schema e as migrations ficam em `prisma/`.
+
+## Banco e migrations
+
+O site é dono do schema e das migrations a partir da D2. O Prisma entra apenas
+como ferramenta de schema; o Prisma Client não é usado no runtime.
+
+| Variável                     | Uso                                                   |
+| ---------------------------- | ----------------------------------------------------- |
+| `DATABASE_URL`               | runtime, role `kami_app`, sem DDL                     |
+| `MIGRATION_DATABASE_URL`     | CLI do Prisma, role com DDL, só no passo de migration |
+| `PRISMA_SHADOW_DATABASE_URL` | banco de sombra local para criar migrations           |
+
+```powershell
+npm run db:validate
+npm run db:status
+npm run db:diff
+npm run db:migrate
+```
+
+O histórico existente foi copiado do bot preservando nomes e checksums. Antes da
+primeira migration nova, `db:diff` deve sair vazio. Se houver drift, reconcilie
+antes de criar qualquer migration. O guia completo está em [prisma/README.md](prisma/README.md).
 
 ## Rotas principais
 
-| Rota                                        | Comportamento                             |
-| ------------------------------------------- | ----------------------------------------- |
-| `/`                                         | Landing                                   |
-| `/termos`, `/privacidade`                   | Jurídico PT-BR                            |
-| `/terms`, `/privacy`                        | Jurídico EN                               |
-| `/ficha`, `/ficha/:userId/:sheetName`       | Aviso de ficha pública em desenvolvimento |
-| `/comandos`                                 | `410 Gone`                                |
-| `/convite`, `/suporte`                      | `302` para o Discord                      |
-| `/tutoriais`, `/macros`, `/macro/:id/:nome` | `302` para a landing ou seção de recursos |
+| Rota                                       | Comportamento                             |
+| ------------------------------------------ | ----------------------------------------- |
+| `/`                                        | Landing                                   |
+| `/termos`, `/privacidade`                  | Jurídico PT-BR                            |
+| `/terms`, `/privacy`                       | Jurídico EN                               |
+| `/cadastrar`                               | Cadastro com username, e-mail e senha     |
+| `/entrar`                                  | Login com e-mail e senha                  |
+| `/painel`                                  | Visão geral autenticada com `noindex`     |
+| `/fichas`                                  | Lista editável de fichas                  |
+| `/:userId/ficha/:sheetName`                | Editor/leitura do dono e ficha pública    |
+| `/fichas/:id`                              | `302` para `/:userId/ficha/:sheetName`    |
+| `/ao-vivo`                                 | Fichas vinculadas ao Discord (IRT)        |
+| `/macros`                                  | Macros somente leitura                    |
+| `/configuracoes`                           | Conta, username e senha                   |
+| `/sair`                                    | Confirmação de logout                     |
+| `/login`, `/logout`, `/dashboard`, `/sync` | `302` para `/entrar`, `/sair` e `/painel` |
+| `/ficha/:userId/:sheetName`                | `302` para a URL canônica da ficha        |
+| `/comandos`                                | `410 Gone`                                |
+| `/convite`, `/suporte`                     | `302` para o Discord                      |
+| `/tutoriais`, `/macro/:id/:nome`           | `302` para a landing ou seção de recursos |
 
 ## Imagens e marca
 

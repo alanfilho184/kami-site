@@ -44,7 +44,6 @@ export default defineNuxtComponent({
         return {
             statistics,
             botInvite: String(config.public.botInvite ?? ''),
-            discordUrl: String(config.public.discordInvite ?? ''),
             content: landing
         };
     },
@@ -52,7 +51,6 @@ export default defineNuxtComponent({
         return {
             statistics: null as StatisticsResponse | null,
             botInvite: '',
-            discordUrl: '',
             content: landing
         };
     },
@@ -118,17 +116,17 @@ export default defineNuxtComponent({
 
                         <div class="site-hero__acoes">
                             <KamiButton
-                                v-if="botInvite"
                                 variant="primary"
                                 size="lg"
-                                :href="botInvite"
-                                external
+                                to="/entrar"
                             >
                                 {{ content.hero.primaryCta }}
                             </KamiButton>
                             <KamiButton
+                                v-if="botInvite"
                                 size="lg"
-                                href="#ficha"
+                                :href="botInvite"
+                                external
                             >
                                 {{ content.hero.secondaryCta }}
                             </KamiButton>
@@ -263,7 +261,8 @@ export default defineNuxtComponent({
                     <h2 class="site-secao__titulo">Veja como é uma ficha por dentro.</h2>
                 </div>
                 <p class="site-prosa">
-                    Uma ficha fictícia, montada com os cinco tipos de atributo. Os dados são demonstrativos; a sua ficha
+                    Uma ficha fictícia montada no editor: cabeçalho, descrição, texto, número, imagem, lista, barra,
+                    status e tabela, com seções livres e layout ajustável. Os dados são demonstrativos; a sua ficha
                     começa em branco e cresce do jeito que o seu sistema pede.
                 </p>
             </header>
@@ -323,18 +322,16 @@ export default defineNuxtComponent({
                 </div>
                 <div class="site-cta__acoes">
                     <KamiButton
-                        v-if="botInvite"
                         variant="primary"
                         size="lg"
-                        :href="botInvite"
-                        external
+                        to="/painel"
                     >
                         {{ content.finalCta.cta }}
                     </KamiButton>
                     <KamiButton
-                        v-if="discordUrl"
+                        v-if="botInvite"
                         size="lg"
-                        :href="discordUrl"
+                        :href="botInvite"
                         external
                     >
                         {{ content.finalCta.secondaryCta }}

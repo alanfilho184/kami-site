@@ -15,8 +15,8 @@ export default defineNuxtComponent({
         const config = useRuntimeConfig();
 
         return {
-            botInvite: String(config.public.botInvite ?? ''),
             discordUrl: String(config.public.discordInvite ?? ''),
+            botInvite: String(config.public.botInvite ?? ''),
             topbarLinks: landing.topbar.links,
             topbarSubtitle: landing.topbar.subtitle,
             topbarCta: landing.topbar.cta
@@ -81,6 +81,7 @@ export default defineNuxtComponent({
             aria-hidden="true"
         ></div>
         <KamiTopbar
+            :discord-url="discordUrl"
             :bot-invite="botInvite"
             :subtitle="topbarSubtitle"
             :cta="topbarCta"

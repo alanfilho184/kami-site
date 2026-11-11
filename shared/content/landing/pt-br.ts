@@ -1,3 +1,5 @@
+import type { SheetAttributes, SheetLayout } from '../../types/sheet';
+
 export interface StatItem {
     key: 'users' | 'activeUsers' | 'sheets' | 'interactions';
     label: string;
@@ -32,35 +34,18 @@ export interface FaqItem {
     answer: string;
 }
 
-export interface SampleAttribute {
-    name: string;
-    value: number;
-}
-
-export interface SampleBar {
-    name: string;
-    current: number;
-    max: number;
-    min: number;
-}
-
-export interface InventoryItem {
-    name: string;
-    quantity: string;
-}
-
 export const landing = {
     meta: {
         title: 'Kami - Fichas de RPG Personalizáveis',
         description:
-            'Crie fichas de personagem do seu jeito, role dados e mantenha a ficha atualizada durante a sessão. Gratuito, em português e inglês.',
+            'Crie e edite fichas de personagem no site, mantenha a ficha atualizada durante a sessão e, se quiser, use o bot do Discord para rolar dados e levar a ficha para a mesa.',
         ogTitle: 'Kami - Fichas de RPG Personalizáveis',
-        ogDescription: 'Fichas personalizáveis, rolagem de dados e ficha ao vivo.'
+        ogDescription: 'Fichas personalizáveis no site, ficha ao vivo e o bot do Kami no Discord.'
     },
     topbar: {
         subtitle: 'FICHAS DE RPG PERSONALIZÁVEIS',
-        cta: 'ADICIONAR O KAMI',
-        shortCta: 'ADICIONAR',
+        cta: 'ENTRAR',
+        shortCta: 'ENTRAR',
         support: 'SUPORTE',
         links: [
             { label: 'RECURSOS', href: '/#recursos' },
@@ -71,21 +56,21 @@ export const landing = {
     },
     hero: {
         eyebrow: 'PARA A SUA MESA',
-        titleLines: ['FICHAS DO SEU JEITO.', 'DADOS NA HORA.'],
+        titleLines: ['FICHAS DO SEU JEITO.', 'DO SITE PARA A MESA.'],
         description:
-            'O Kami organiza as fichas do seu personagem, rola os dados e mantém tudo sincronizado - durante e entre as sessões.',
-        note: 'GRATUITO · PT-BR E EN-US',
-        primaryCta: 'ADICIONAR O KAMI',
-        secondaryCta: 'VER UMA FICHA'
+            'Monte e mantenha a ficha do personagem no site, com atualizações em tempo real durante a sessão. Se quiser, o bot do Discord leva a ficha e as rolagens para a mesa.',
+        note: 'GRATUITO · COMECE NO SITE',
+        primaryCta: 'ENTRAR',
+        secondaryCta: 'ADICIONAR O BOT'
     },
     stats: {
         label: 'O KAMI EM NÚMEROS',
         meta: 'DADOS DO KAMI',
         items: [
             { key: 'users', label: 'JOGADORES', sub: 'cadastrados no Kami' },
-            { key: 'activeUsers', label: 'ATIVOS', sub: 'nos últimos 30 dias' },
+            { key: 'activeUsers', label: 'USUÁRIOS ATIVOS', sub: 'nos últimos 30 dias' },
             { key: 'sheets', label: 'FICHAS CRIADAS', sub: 'atualmente no Kami' },
-            { key: 'interactions', label: 'INTERAÇÕES', sub: 'executadas desde o início do Kami' }
+            { key: 'interactions', label: 'INTERAÇÕES NO DISCORD', sub: 'desde o início do Kami' }
         ] as StatItem[],
         updatedNote: 'DADOS DO KAMI · ATUALIZADO EM',
         unavailableNote: 'ESTATÍSTICAS INDISPONÍVEIS · TENTANDO NOVAMENTE EM INSTANTES',
@@ -96,28 +81,28 @@ export const landing = {
         meta: 'RECURSOS',
         title: 'Uma ficha que acompanha o ritmo da mesa.',
         description:
-            'Sem planilha paralela e sem decorar comando. O Kami cuida da ficha para você olhar para a história.',
+            'Monte e mantenha a ficha no site, sem planilha paralela. O bot do Discord é opcional e leva as rolagens e a ficha ao vivo para a mesa.',
         items: [
             {
                 code: '01',
                 label: 'FICHAS',
                 title: 'Monte a ficha que o seu sistema pede.',
-                text: 'Texto, número, imagem, lista e barra em seções livres. Se o seu sistema tem uma regra estranha, a ficha acompanha.',
-                details: ['TEXTO', 'NÚMERO', 'IMAGEM', 'LISTA', 'BARRA']
+                text: 'Texto, número, imagem, lista, barra, status e tabela em seções livres. Se o seu sistema tem uma regra estranha, a ficha acompanha.',
+                details: ['TEXTO', 'NÚMERO', 'IMAGEM', 'LISTA', 'BARRA', 'STATUS', 'TABELA']
             },
             {
                 code: '02',
-                label: 'DADOS',
-                title: 'Role sem sair da mesa.',
-                text: 'Expressões com soma, vantagem, desvantagem e comparadores. Salve as jogadas de sempre em botões.',
+                label: 'DADOS NO DISCORD',
+                title: 'Role com o bot, sem sair da mesa.',
+                text: 'As rolagens acontecem pelo bot do Discord: expressões com soma, vantagem, desvantagem e comparadores. A ficha continua no site.',
                 details: ['2d6 + 3', 'VANTAGEM', 'COMPARADOR']
             },
             {
                 code: '03',
                 label: 'FICHA AO VIVO',
                 title: 'A ficha muda, a mesa acompanha.',
-                text: 'Envie a ficha para a mesa e deixe-a se atualizar sozinha quando o personagem mudar. Até três exibições por ficha.',
-                details: ['SINCRONIZAÇÃO', 'ATÉ 3 EXIBIÇÕES']
+                text: 'Compartilhe a ficha por link ou envie para o Discord pelo bot. As mudanças feitas no site aparecem na hora; pelo bot, são até três exibições sincronizadas por ficha.',
+                details: ['LINK PÚBLICO', 'SINCRONIZAÇÃO', 'ATÉ 3 EXIBIÇÕES']
             }
         ] as Feature[],
         roadmap: {
@@ -128,7 +113,7 @@ export const landing = {
                     state: 'active',
                     status: 'EM DESENVOLVIMENTO',
                     title: 'Macros',
-                    text: 'Salve as jogadas que se repetem como atalhos com nome. A macro guarda a expressão de dados e fica à mão na ficha, sem redigitar a fórmula a cada turno.',
+                    text: 'Salve as jogadas que se repetem como atalhos com nome. O macro guarda a expressão de dados e fica à mão na ficha do site, sem redigitar a fórmula a cada turno.',
                     details: ['ROLAGENS SALVAS', 'ATALHOS NA FICHA']
                 },
                 {
@@ -146,57 +131,218 @@ export const landing = {
         label: 'FICHA DE AMOSTRA',
         meta: 'AMOSTRA',
         tag: 'PERSONAGEM FICTÍCIO · DADOS DEMONSTRATIVOS',
-        portrait: {
-            src: '/placeholders/placeholder.webp',
-            alt: 'Símbolo do Kami, um dado de vinte faces azul sobre um mapa topográfico, usado como imagem de exemplo.'
-        },
-        name: 'LYRA VOSS',
-        summary: 'Cartógrafa de ruínas · Nível 4',
-        description:
-            'Lyra mapeia ruínas que não aparecem em nenhum mapa. Carrega um caderno de rotas incompletas e desconfia de qualquer porta que já esteja aberta.',
-        origin: 'Porto Cinza',
-        concept: 'Leitora de mapas que não deveriam existir',
-        attributes: [
-            { name: 'AGILIDADE', value: 4 },
-            { name: 'PRECISÃO', value: 3 },
-            { name: 'VONTADE', value: 5 },
-            { name: 'PRESENÇA', value: 2 }
-        ] as SampleAttribute[],
-        resources: [
-            { name: 'VITALIDADE', current: 12, max: 16, min: 0 },
-            { name: 'SANIDADE', current: 6, max: 8, min: 0 }
-        ] as SampleBar[],
-        inventory: [
-            { name: 'Corda de seda', quantity: '×1' },
-            { name: 'Lanterna a óleo', quantity: '×2' },
-            { name: 'Ração de viagem', quantity: '×4' },
-            { name: 'Bússola quebrada', quantity: '×1' }
-        ] as InventoryItem[],
-        notes: 'A porta só abre com a marcação certa. Lyra já viu esse símbolo em três ruínas - e nas três, alguém chegou antes.',
-        footer: 'TEXTO · NÚMERO · IMAGEM · LISTA · BARRA'
+        name: 'Lyra Voss',
+        footer: 'TEXTO · NÚMERO · IMAGEM · LISTA · BARRA · STATUS · TABELA',
+        attributes: {
+            sections: [
+                {
+                    name: 'Identidade',
+                    type: 2,
+                    position: 0,
+                    attributes: [
+                        { name: 'Nome', type: 0, position: 0, value: 'Lyra Voss' },
+                        { name: 'Resumo', type: 0, position: 1, value: 'Cartógrafa de ruínas · Nível 4' },
+                        { name: 'Retrato', type: 2, position: 2, value: '/placeholders/placeholder.webp' },
+                        { name: 'Origem', type: 0, position: 3, value: 'Porto Cinza' },
+                        {
+                            name: 'Conceito',
+                            type: 0,
+                            position: 4,
+                            value: 'Leitora de mapas que não deveriam existir'
+                        },
+                        {
+                            name: 'Descrição',
+                            type: 0,
+                            position: 5,
+                            value: 'Lyra mapeia ruínas que não aparecem em nenhum mapa e desconfia de qualquer porta já aberta.'
+                        }
+                    ]
+                },
+                {
+                    name: 'Atributos',
+                    type: 0,
+                    position: 1,
+                    attributes: [
+                        { name: 'AGILIDADE', type: 1, position: 0, value: 4 },
+                        { name: 'PRECISÃO', type: 1, position: 1, value: 3 },
+                        { name: 'VONTADE', type: 1, position: 2, value: 5 },
+                        { name: 'PRESENÇA', type: 1, position: 3, value: 2 }
+                    ]
+                },
+                {
+                    name: 'Recursos',
+                    type: 0,
+                    position: 2,
+                    attributes: [
+                        {
+                            name: 'VITALIDADE',
+                            type: 4,
+                            position: 0,
+                            value: {
+                                actual: 12,
+                                max: 16,
+                                min: 0,
+                                step: 1,
+                                color: '#ff2b1d',
+                                pattern: 'segmented'
+                            }
+                        },
+                        {
+                            name: 'SANIDADE',
+                            type: 4,
+                            position: 1,
+                            value: {
+                                actual: 6,
+                                max: 8,
+                                min: 0,
+                                step: 1,
+                                color: '#0082ff'
+                            }
+                        }
+                    ]
+                },
+                {
+                    name: 'Condição',
+                    type: 3,
+                    position: 3,
+                    attributes: [
+                        {
+                            name: 'Estado',
+                            type: 5,
+                            position: 0,
+                            value: {
+                                items: [
+                                    {
+                                        id: 'ferido',
+                                        name: 'Ferido',
+                                        color: '#ff2b1d',
+                                        blink: false,
+                                        active: true
+                                    },
+                                    {
+                                        id: 'focado',
+                                        name: 'Focado',
+                                        color: '#0082ff',
+                                        blink: false,
+                                        active: true
+                                    },
+                                    {
+                                        id: 'exausto',
+                                        name: 'Exausto',
+                                        color: '#ffaa00',
+                                        blink: false,
+                                        active: false
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    name: 'Inventário',
+                    type: 0,
+                    position: 4,
+                    attributes: [
+                        {
+                            name: 'Itens',
+                            type: 3,
+                            position: 0,
+                            value: {
+                                items: [
+                                    { name: 'Corda de seda', quantity: '1' },
+                                    { name: 'Lanterna a óleo', quantity: '2' },
+                                    { name: 'Ração de viagem', quantity: '4' },
+                                    { name: 'Bússola quebrada', quantity: '1' }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    name: 'Anotações',
+                    type: 1,
+                    position: 5,
+                    attributes: [
+                        {
+                            name: 'Texto',
+                            type: 0,
+                            position: 0,
+                            value: 'A porta só abre com a marcação certa. Lyra já viu esse símbolo em três ruínas - e nas três, alguém chegou antes.'
+                        }
+                    ]
+                },
+                {
+                    name: 'Perícias',
+                    type: 5,
+                    position: 6,
+                    attributes: [
+                        {
+                            name: 'Tabela',
+                            type: 6,
+                            position: 0,
+                            value: {
+                                columns: ['PERÍCIA', 'BÔNUS'],
+                                rows: [
+                                    ['Investigação', '+5'],
+                                    ['Sobrevivência', '+4'],
+                                    ['Furtividade', '+3'],
+                                    ['Percepção', '+2']
+                                ]
+                            }
+                        }
+                    ]
+                }
+            ]
+        } as SheetAttributes,
+        layout: {
+            sections: {
+                Identidade: {
+                    columns: 12,
+                    span: 12,
+                    header: {
+                        title: 'Nome',
+                        subtitle: 'Resumo',
+                        image: 'Retrato',
+                        imageWidth: 3,
+                        titleSize: 48
+                    },
+                    attributes: {
+                        Origem: { span: 6, rows: 1 },
+                        Conceito: { span: 6, rows: 1 },
+                        Descrição: { span: 12, rows: 1 }
+                    }
+                },
+                Atributos: { columns: 4, span: 6 },
+                Recursos: { columns: 2, span: 3 },
+                Condição: { columns: 3, span: 3 },
+                Inventário: { columns: 4, span: 4 },
+                Anotações: { columns: 12, span: 8 },
+                Perícias: { columns: 12, span: 12 }
+            }
+        } as SheetLayout
     },
     howItWorks: {
         label: 'COMO FUNCIONA',
         meta: '3 PASSOS',
-        title: 'Da ficha à primeira rolagem em poucos minutos.',
+        title: 'Da ficha à mesa em poucos minutos.',
         steps: [
             {
                 code: '01',
-                title: 'ADICIONE',
-                text: 'Adicione o Kami ao servidor e comece a montar a ficha.'
+                title: 'COMECE NO SITE',
+                text: 'Crie sua conta e monte a ficha no editor do site. O bot do Discord é opcional.'
             },
             {
                 code: '02',
                 title: 'MONTE A FICHA',
-                text: 'Crie seções e atributos com os cinco tipos. Nomeie do jeito que o seu sistema nomeia.'
+                text: 'Crie seções e atributos com texto, número, imagem, lista, barra, status e tabela. Nomeie do jeito que o seu sistema nomeia.'
             },
             {
                 code: '03',
                 title: 'LEVE PARA A MESA',
-                text: 'Envie a ficha para a mesa e role os dados durante a sessão.'
+                text: 'Compartilhe o link da ficha ou envie para o Discord pelo bot. As alterações feitas no site acompanham a sessão.'
             }
         ] as Step[],
-        note: 'O MESMO KAMI EM PT-BR E EN-US'
+        note: 'COMECE NO SITE · O BOT DO DISCORD É OPCIONAL'
     },
     faq: {
         label: 'PERGUNTAS FREQUENTES',
@@ -209,7 +355,7 @@ export const landing = {
             },
             {
                 question: 'Preciso criar conta?',
-                answer: 'Não. Hoje o Kami funciona pelo Discord; o login no site chega na próxima etapa e não é necessário para jogar.'
+                answer: 'Para usar o editor e os recursos do site, sim. A conta é gratuita e pode ser criada com e-mail e senha. Para jogar apenas pelo Discord, o bot do Kami pode ser usado sem conta no site.'
             },
             {
                 question: 'Serve para qualquer sistema de RPG?',
@@ -217,28 +363,28 @@ export const landing = {
             },
             {
                 question: 'O que é a ficha ao vivo?',
-                answer: 'É a ficha compartilhada com a mesa. Quando você edita o personagem, ela se atualiza sozinha. Cada ficha pode ter até três exibições sincronizadas.'
+                answer: 'É a ficha que você edita no site e compartilha com a mesa. O link público abre no navegador e se atualiza em tempo real; pelo bot do Discord, a ficha também pode ser enviada e sincronizada, com até três exibições por ficha.'
             },
             {
                 question: 'Minhas fichas ficam públicas?',
-                answer: 'Não são listadas em diretórios nem aparecem em buscadores. O acesso acontece pelo link da própria ficha, quando ele é compartilhado.'
+                answer: 'Não são listadas em diretórios nem aparecem em buscadores. A ficha pode ser configurada para que qualquer pessoa tenha acesso de leitura, sem ou com senha, ou ser mantida privada.'
             },
             {
                 question: 'Tem versão em inglês?',
-                answer: 'Sim. O Kami funciona em português do Brasil e inglês, com o idioma configurável por servidor.'
+                answer: 'O site está em português do Brasil; a versão em inglês está planejada. O bot do Discord já funciona em português e inglês, com o idioma configurável por servidor.'
             },
             {
                 question: 'Posso usar no celular?',
-                answer: 'Sim. A ficha e os dados funcionam no celular, onde você estiver.'
+                answer: 'Sim. A ficha do site funciona no navegador do celular, e o bot do Discord pode ser usado no app.'
             }
         ] as FaqItem[]
     },
     finalCta: {
         label: 'PRONTO PARA A PRÓXIMA SESSÃO',
         title: 'Leve o Kami para a sua mesa.',
-        text: 'As fichas, os dados e as anotações do personagem ficam no mesmo lugar - da criação à última rolagem.',
-        cta: 'ADICIONAR O KAMI',
-        secondaryCta: 'ENTRAR NO SERVIDOR DE SUPORTE'
+        text: 'Crie sua conta, monte a ficha no site e compartilhe com a mesa. O bot do Discord é opcional para levar a ficha e as rolagens para o servidor.',
+        cta: 'ENTRAR NO SITE',
+        secondaryCta: 'ADICIONAR O BOT'
     }
 };
 

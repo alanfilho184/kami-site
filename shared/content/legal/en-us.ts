@@ -69,7 +69,7 @@ export const termsEnUs: LegalDocument = {
 export const privacyEnUs: LegalDocument = {
     title: 'Privacy Policy',
     summary: 'What data Kami processes, why, and how to request deletion.',
-    updatedAt: '2026-10-28',
+    updatedAt: '2026-10-31',
     language: 'EN-US',
     languageRoute: '/privacidade',
     languageLabel: 'LER EM PORTUGUÊS',
@@ -81,6 +81,7 @@ export const privacyEnUs: LegalDocument = {
                 'Usage data: commands executed, arguments, attachments, language, originating server or DM and time.',
                 'Sheet data: sections, attributes, images, lists, bars and any other information you add.',
                 'Server settings: language and Kami options on the server.',
+                'Website account data: username, email, password stored as a hash and terms acceptance date.',
                 'Technical website data: IP address, date and time, browser and requested page, used for security and diagnostics.'
             ]
         },
@@ -105,7 +106,7 @@ export const privacyEnUs: LegalDocument = {
             title: '4. Cookies and tracking',
             paragraphs: [
                 'The website does not use advertising, analytics or third-party tracking cookies.',
-                'When website login becomes available, an HttpOnly session cookie will be used to keep you authenticated. This cookie is not accessible through JavaScript.'
+                'Website login uses an HttpOnly session cookie to keep you authenticated for up to 30 days. This cookie is not accessible through JavaScript and is not used for advertising or tracking.'
             ]
         },
         {

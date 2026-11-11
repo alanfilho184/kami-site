@@ -6,6 +6,8 @@ export interface TopbarLink {
     href: string;
 }
 
+type TopbarCtaVariant = 'default' | 'primary' | 'solid' | 'danger';
+
 export default defineComponent({
     name: 'KamiTopbar',
     props: {
@@ -25,9 +27,21 @@ export default defineComponent({
             type: String,
             default: 'SUPORTE'
         },
+        ctaTo: {
+            type: String,
+            default: '/entrar'
+        },
+        ctaVariant: {
+            type: String as PropType<TopbarCtaVariant>,
+            default: 'primary'
+        },
         botInvite: {
             type: String,
             default: ''
+        },
+        authenticated: {
+            type: Boolean,
+            default: false
         },
         discordUrl: {
             type: String,
@@ -79,6 +93,16 @@ export default defineComponent({
 
             <div class="kami-topbar__actions">
                 <KamiButton
+                    v-if="botInvite"
+                    class="site-topbar__adicionar"
+                    size="sm"
+                    :href="botInvite"
+                    external
+                >
+                    <span class="site-topbar__label-longo">ADICIONAR O KAMI</span>
+                    <span class="site-topbar__label-curto">ADICIONAR</span>
+                </KamiButton>
+                <KamiButton
                     v-if="discordUrl"
                     class="site-topbar__suporte"
                     size="sm"
@@ -87,12 +111,11 @@ export default defineComponent({
                 >
                     {{ support }}
                 </KamiButton>
+                <KamiReportProblem v-if="authenticated" />
                 <KamiButton
-                    v-if="botInvite"
-                    variant="primary"
+                    :variant="ctaVariant"
                     size="sm"
-                    :href="botInvite"
-                    external
+                    :to="ctaTo"
                 >
                     <span class="site-topbar__cta-longo">{{ cta }}</span>
                     <span class="site-topbar__cta-curto">{{ shortCta }}</span>

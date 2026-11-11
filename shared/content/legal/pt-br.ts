@@ -69,7 +69,7 @@ export const termsPtBr: LegalDocument = {
 export const privacyPtBr: LegalDocument = {
     title: 'Política de Privacidade',
     summary: 'Quais dados o Kami trata, por quê e como pedir a exclusão.',
-    updatedAt: '28/10/2026',
+    updatedAt: '31/10/2026',
     language: 'PT-BR',
     languageRoute: '/privacy',
     languageLabel: 'READ IN ENGLISH',
@@ -81,6 +81,7 @@ export const privacyPtBr: LegalDocument = {
                 'Dados de uso: comandos executados, argumentos, anexos, idioma, servidor ou DM de origem e horário.',
                 'Dados das fichas: seções, atributos, imagens, listas, barras e demais informações que você adicionar.',
                 'Configurações de servidor: idioma e opções do Kami no servidor.',
+                'Dados de conta do site: username, e-mail, senha armazenada como hash e data de aceite dos termos.',
                 'Dados técnicos do site: endereço IP, data e hora, navegador e página solicitada, usados para segurança e diagnóstico.'
             ]
         },
@@ -105,7 +106,7 @@ export const privacyPtBr: LegalDocument = {
             title: '4. Cookies e rastreamento',
             paragraphs: [
                 'O site não usa cookies de publicidade, analytics ou rastreamento de terceiros.',
-                'Quando o login do site estiver disponível, será usado um cookie de sessão HttpOnly para manter você autenticado. Esse cookie não é acessível por JavaScript.'
+                'O login do site usa um cookie de sessão HttpOnly para manter você autenticado por até 30 dias. Esse cookie não é acessível por JavaScript e não é usado para publicidade ou rastreamento.'
             ]
         },
         {
