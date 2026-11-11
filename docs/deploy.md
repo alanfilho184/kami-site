@@ -160,6 +160,12 @@ separado, como `/etc/kami/migrations.env`, com permissão `600`, lido apenas no
 passo de deploy. `MIGRATION_DATABASE_URL` usa a role `kami_migrator`; o runtime
 continua usando `DATABASE_URL` com `kami_app`.
 
+A CLI do Prisma segue a mesma regra do `ecosystem.config.cjs`: lê o arquivo
+apontado por `KAMI_ENV_FILE`; sem ele, tenta `/etc/kami/kami-site.env` e depois o
+`.env` da raiz. Por isso o passo de migration aponta `KAMI_ENV_FILE` para o
+arquivo de migration, sem precisar exportar as variáveis no shell. Variáveis já
+definidas no ambiente têm precedência sobre o arquivo.
+
 Gere o `SESSION_SECRET` com `openssl rand -base64 48`. Ele fica reservado para
 cookies assinados da D4; a sessão opaca da D2 não é assinada por ele. Para revogar
 todas as sessões, limpe a tabela `site_sessions` em vez de trocar o segredo.
@@ -251,7 +257,9 @@ Antes de recarregar as VPS, aplique as migrations uma única vez por release, na
 primeira VPS e com a role de migration:
 
 ```bash
-sudo -u kami bash -c 'set -a; . /etc/kami/migrations.env; set +a; cd /srv/kami-site; npm run db:status; npm run db:migrate'
+cd /srv/kami-site
+sudo -u kami env KAMI_ENV_FILE=/etc/kami/migrations.env npm run db:status
+sudo -u kami env KAMI_ENV_FILE=/etc/kami/migrations.env npm run db:migrate
 ```
 
 Não rode a migration nas duas VPS e não a coloque no boot do processo.
