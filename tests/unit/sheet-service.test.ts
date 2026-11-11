@@ -4,7 +4,6 @@ import {
     InvalidSheetError,
     SheetConflictError,
     SheetLimitError,
-    SheetLiveError,
     SheetNameTakenError,
     SheetNotFoundError
 } from '../../server/services/sheet-errors';
@@ -42,6 +41,7 @@ interface ServiceDependencies {
     renameSheetRecord: ReturnType<typeof vi.fn>;
     updateSheetSharingRecord: ReturnType<typeof vi.fn>;
     deleteSheetRecord: ReturnType<typeof vi.fn>;
+    listIrtSheets: ReturnType<typeof vi.fn>;
 }
 
 function createService() {
@@ -54,7 +54,8 @@ function createService() {
         updateSheetRecord: vi.fn(),
         renameSheetRecord: vi.fn(),
         updateSheetSharingRecord: vi.fn(),
-        deleteSheetRecord: vi.fn()
+        deleteSheetRecord: vi.fn(),
+        listIrtSheets: vi.fn().mockResolvedValue([])
     };
     const service = createSheetService(deps);
 
@@ -121,6 +122,15 @@ describe('serviço de fichas', () => {
         });
     });
 
+    it('inclui o nome do criador quando a consulta pública traz creator_name', async () => {
+        const { service, deps } = createService();
+        deps.findSheet.mockResolvedValue(createRow({ creator_name: '  Lyra  ' }));
+
+        const detail = await service.getSheet(42, 7);
+
+        expect(detail.creatorName).toBe('Lyra');
+    });
+
     it('createSheet grava o nome limpo e a seção Info vazia', async () => {
         const { service, deps } = createService();
         deps.findSheetName.mockResolvedValue(null);
@@ -172,14 +182,16 @@ describe('serviço de fichas', () => {
         expect(deps.insertSheet).toHaveBeenCalledWith(42, 'Nova Ficha', emptyInfo, false, false, null);
     });
 
-    it('updateSheet bloquea ficha ao vivo antes de qualquer escrita', async () => {
+    it('updateSheet permite editar ficha ao vivo e mantém o selo', async () => {
         const { service, deps } = createService();
         deps.findSheet.mockResolvedValue(createRow({ is_live: true }));
+        deps.findSheetName.mockResolvedValue(null);
+        deps.updateSheetRecord.mockResolvedValue(createRow({ is_live: true }));
 
-        await expect(service.updateSheet(42, 7, { name: 'Lyra Voss', attributes: emptyInfo, version })).rejects.toThrow(
-            SheetLiveError
-        );
-        expect(deps.updateSheetRecord).not.toHaveBeenCalled();
+        const detail = await service.updateSheet(42, 7, { name: 'Lyra Voss', attributes: emptyInfo, version });
+
+        expect(detail.isLive).toBe(true);
+        expect(deps.updateSheetRecord).toHaveBeenCalled();
     });
 
     it('updateSheet sinaliza conflito quando a versão não corresponde mais', async () => {
@@ -326,12 +338,16 @@ describe('serviço de fichas', () => {
         expect(detail.hasPassword).toBe(false);
     });
 
-    it('updateSheetSharing bloqueia ficha ao vivo', async () => {
+    it('updateSheetSharing permite alterar o compartilhamento de ficha ao vivo', async () => {
         const { service, deps } = createService();
         deps.findSheet.mockResolvedValue(createRow({ is_live: true }));
+        deps.updateSheetSharingRecord.mockResolvedValue(createRow({ is_live: true, is_public: true }));
 
-        await expect(service.updateSheetSharing(42, 7, { version, isPublic: true })).rejects.toThrow(SheetLiveError);
-        expect(deps.updateSheetSharingRecord).not.toHaveBeenCalled();
+        await expect(service.updateSheetSharing(42, 7, { version, isPublic: true })).resolves.toMatchObject({
+            isLive: true,
+            isPublic: true
+        });
+        expect(deps.updateSheetSharingRecord).toHaveBeenCalled();
     });
 
     it('updateSheetSharing sinaliza conflito quando a versão não corresponde', async () => {
@@ -344,12 +360,14 @@ describe('serviço de fichas', () => {
         );
     });
 
-    it('deleteSheet bloquea ficha ao vivo', async () => {
+    it('deleteSheet exclui ficha ao vivo e delega a limpeza dos vínculos IRT', async () => {
         const { service, deps } = createService();
         deps.findSheet.mockResolvedValue(createRow({ is_live: true }));
+        deps.deleteSheetRecord.mockResolvedValue(7);
 
-        await expect(service.deleteSheet(42, 7, version)).rejects.toThrow(SheetLiveError);
-        expect(deps.deleteSheetRecord).not.toHaveBeenCalled();
+        await expect(service.deleteSheet(42, 7, version)).resolves.toBeUndefined();
+        expect(deps.listIrtSheets).toHaveBeenCalledWith(42, 7);
+        expect(deps.deleteSheetRecord).toHaveBeenCalledWith(42, 7, version);
     });
 
     it('deleteSheet exclui com a versão atual', async () => {

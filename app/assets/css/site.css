@@ -198,6 +198,10 @@
     display: none;
 }
 
+.site-topbar__label-curto {
+    display: none;
+}
+
 .site-marca {
     color: var(--kami-text);
 }
@@ -713,221 +717,6 @@
     color: var(--kami-text-dim);
 }
 
-.site-ficha__topo {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 180px;
-    gap: clamp(20px, 4vw, 48px);
-    align-items: start;
-}
-
-.site-ficha__identidade {
-    min-width: 0;
-}
-
-.site-ficha__nome {
-    font-family: var(--kami-font-display);
-    font-size: clamp(40px, 6vw, 72px);
-    font-weight: 700;
-    line-height: 0.92;
-    color: var(--kami-text);
-}
-
-.site-ficha__resumo {
-    margin-top: 8px;
-    font-family: var(--site-font-prosa);
-    font-size: 18px;
-    color: var(--kami-text-muted);
-}
-
-.site-ficha__campos {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px 24px;
-    margin-top: 20px;
-}
-
-.site-ficha__campos dt {
-    font-family: var(--kami-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--kami-text-dim);
-}
-
-.site-ficha__campos dd {
-    margin-top: 2px;
-    font-family: var(--site-font-prosa);
-    font-size: 16px;
-    color: var(--kami-text);
-}
-
-.site-ficha__tipo {
-    display: block;
-    margin-top: 14px;
-    font-family: var(--kami-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--kami-text-dim);
-}
-
-.site-ficha__descricao {
-    max-width: 58ch;
-    margin-top: 3px;
-    font-family: var(--site-font-prosa);
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--kami-text-muted);
-}
-
-.site-ficha__retrato {
-    margin: 0;
-    border: var(--kami-border);
-    background: var(--kami-surface-2);
-}
-
-.site-ficha__retrato svg,
-.site-ficha__retrato img {
-    display: block;
-    width: 100%;
-    height: auto;
-}
-
-.site-ficha__retrato img {
-    aspect-ratio: 4 / 5;
-    object-fit: cover;
-}
-
-.site-ficha__retrato figcaption {
-    padding: 6px 8px;
-    border-top: var(--kami-border);
-    font-family: var(--kami-font-mono);
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-align: right;
-    text-transform: uppercase;
-    color: var(--kami-text-dim);
-}
-
-.site-ficha__grade {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--kami-space-4);
-}
-
-.site-ficha__bloco {
-    min-width: 0;
-    padding: 16px 18px;
-    border: var(--kami-border);
-    background: rgba(5, 7, 10, 0.6);
-}
-
-.site-ficha__bloco-topo {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
-    border-bottom: var(--kami-border-soft);
-}
-
-.site-ficha__bloco-topo h4 {
-    font-family: var(--kami-font-display);
-    font-size: 14px;
-    font-weight: 600;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--kami-text);
-}
-
-.site-ficha__bloco-topo span {
-    font-family: var(--kami-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
-    color: var(--kami-text-dim);
-}
-
-.site-ficha__bloco--atributos {
-    display: flex;
-    flex-direction: column;
-}
-
-.site-ficha__atributos {
-    flex: 1;
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-}
-
-.site-ficha__atributos div {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    min-width: 0;
-    text-align: center;
-}
-
-.site-ficha__atributos dt {
-    font-family: var(--kami-font-mono);
-    font-size: 10px;
-    letter-spacing: 0.1em;
-    color: var(--kami-text-dim);
-}
-
-.site-ficha__atributos dd {
-    font-family: var(--kami-font-display);
-    font-size: clamp(40px, 5.6vw, 60px);
-    line-height: 1;
-    color: var(--kami-text);
-}
-
-.site-ficha__recursos {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-}
-
-.site-ficha__inventario {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.site-ficha__inventario li {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 7px;
-    border-bottom: var(--kami-border-soft);
-    font-family: var(--site-font-prosa);
-    font-size: 15px;
-    color: var(--kami-text-muted);
-}
-
-.site-ficha__inventario li:last-child {
-    padding-bottom: 0;
-    border-bottom: 0;
-}
-
-.site-ficha__quantidade {
-    font-family: var(--kami-font-mono);
-    font-size: 12px;
-    color: var(--kami-accent);
-}
-
-.site-ficha__anotacao {
-    font-family: var(--site-font-prosa);
-    font-size: 15px;
-    line-height: 1.6;
-    color: var(--kami-text-muted);
-}
-
 .site-ficha__rodape {
     display: flex;
     align-items: center;
@@ -1371,6 +1160,14 @@
     flex-wrap: wrap;
     padding-bottom: var(--kami-space-4);
     border-bottom: var(--kami-border);
+}
+
+.site-ficha-publica__selos {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--kami-space-2);
+    flex-wrap: wrap;
 }
 
 .site-ficha-publica__titulo {
@@ -2243,9 +2040,145 @@
     margin-top: auto;
 }
 
+.site-config__discord {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-4);
+}
+
+.site-config__discord-codigo {
+    display: inline-block;
+    width: fit-content;
+    max-width: 100%;
+    padding: var(--kami-space-3) var(--kami-space-5);
+    border: var(--kami-border-accent);
+    background: var(--kami-accent-soft);
+    color: var(--kami-text);
+    font-family: var(--kami-font-mono);
+    font-size: clamp(20px, 4vw, 26px);
+    letter-spacing: 0.16em;
+    overflow-wrap: anywhere;
+}
+
+.site-config__discord-comando {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--kami-space-3);
+}
+
+.site-config__discord-comando code {
+    padding: 2px 6px;
+    border: var(--kami-border);
+    background: var(--kami-surface-2);
+    color: var(--kami-accent);
+    font-family: var(--kami-font-mono);
+    overflow-wrap: anywhere;
+}
+
+.site-config__discord-cards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--kami-space-3);
+    margin: var(--kami-space-2) 0 0;
+}
+
+.site-config__discord-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-2);
+    min-width: 0;
+    padding: var(--kami-space-4) var(--kami-space-5);
+    border: var(--kami-border);
+    background: var(--kami-surface-2);
+}
+
+.site-config__discord-card dt {
+    margin: 0;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-xs);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+}
+
+.site-config__discord-card dd {
+    margin: 0;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-lg);
+    line-height: 1.35;
+    color: var(--kami-text);
+    overflow-wrap: anywhere;
+}
+
+.site-config__discord-card--numero dd {
+    font-family: var(--kami-font-display);
+    font-size: var(--kami-text-2xl);
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: 0.04em;
+}
+
+.site-config__discord-card--total {
+    border-color: var(--kami-accent-dim);
+    background: var(--kami-accent-soft);
+}
+
+.site-config__discord-card--total dd {
+    color: var(--kami-accent);
+}
+
+.site-config__discord-card-unit {
+    display: inline-block;
+    margin-left: 4px;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-xs);
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: var(--kami-text-dim);
+}
+
+.site-config__discord-aviso,
+.site-config__discord-erro {
+    margin: 0;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.site-config__discord-aviso {
+    color: var(--kami-warn);
+}
+
+.site-config__discord-erro {
+    color: var(--kami-danger);
+}
+
+.site-config__discord-lista {
+    margin: var(--kami-space-2) 0 0;
+    padding-left: var(--kami-space-5);
+    color: var(--kami-warn);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-md);
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.site-config__discord-acoes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--kami-space-3);
+    align-items: center;
+}
+
 @media (max-width: 900px) {
     .site-config__grade {
         grid-template-columns: minmax(0, 1fr);
+    }
+
+    .site-config__discord-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
@@ -2287,6 +2220,11 @@
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--kami-space-5);
+}
+
+.site-ao-vivo__nota {
+    margin-top: var(--kami-space-6);
+    padding-inline: var(--kami-space-6);
 }
 
 .site-fichas__card {
@@ -2390,15 +2328,6 @@
 
 .site-fichas__card-renomear .kami-input {
     width: 100%;
-}
-
-.site-fichas__somente-leitura {
-    margin: 0;
-    font-family: var(--kami-font-mono);
-    font-size: var(--kami-text-2xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--kami-warn);
 }
 
 .site-fichas__confirmar {
@@ -4070,6 +3999,112 @@
     background: rgba(0, 0, 0, 0.66);
 }
 
+/* --- Reporte de problema (topbar) ---------------------------------------- */
+.site-report {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    z-index: calc(var(--kami-z-sticky) + 2);
+    display: flex;
+    flex-direction: column;
+    gap: var(--kami-space-4);
+    width: min(620px, 94vw);
+    max-height: 88vh;
+    overflow-y: auto;
+    padding: var(--kami-space-6);
+    border: var(--kami-border-accent);
+    background: var(--kami-surface);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+    transform: translate(-50%, -50%);
+}
+
+.site-report:focus-visible {
+    outline: 2px solid var(--kami-accent);
+    outline-offset: 2px;
+}
+
+.site-report__fundo {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--kami-z-sticky) + 1);
+    background: rgba(0, 0, 0, 0.66);
+}
+
+.site-report__topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--kami-space-3);
+}
+
+.site-report__titulo {
+    margin: 0;
+    font-family: var(--kami-font-display);
+    font-size: 24px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--kami-text);
+}
+
+.site-report__fechar {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    flex: none;
+    border: var(--kami-border);
+    background: transparent;
+    color: var(--kami-text-muted);
+    cursor: pointer;
+}
+
+.site-report__fechar:hover,
+.site-report__fechar:focus-visible {
+    color: var(--kami-danger);
+    border-color: color-mix(in srgb, var(--kami-danger) 55%, var(--kami-line));
+}
+
+.site-report__fechar:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.site-report__texto {
+    width: 100%;
+    min-height: 140px;
+    resize: vertical;
+}
+
+.site-report__aviso {
+    margin: 0;
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-2xs);
+    letter-spacing: 0.08em;
+    line-height: 1.6;
+    text-transform: uppercase;
+    color: var(--kami-text-dim);
+}
+
+.site-report__acoes {
+    display: flex;
+    align-items: center;
+    gap: var(--kami-space-3);
+    flex-wrap: wrap;
+    margin-top: auto;
+    padding-top: var(--kami-space-4);
+    border-top: var(--kami-border);
+}
+
+@media (max-width: 480px) {
+    .site-report {
+        padding: var(--kami-space-5);
+    }
+
+    .site-report__acoes .kami-btn {
+        width: 100%;
+    }
+}
+
 .site-editor__config-topo {
     display: flex;
     align-items: flex-start;
@@ -4483,6 +4518,7 @@
 .site-sheetview__secao--cabecalho {
     display: grid;
     grid-template-columns: minmax(0, 1fr) var(--header-image-width, 33.333%);
+    grid-template-rows: min-content 1fr;
     grid-template-areas:
         'topo imagem'
         'grade imagem';
@@ -4580,6 +4616,7 @@
 }
 
 .site-sheetview__secao--cabecalho .site-sheetview__grade {
+    align-self: stretch;
     margin-top: var(--kami-space-4);
 }
 
@@ -5625,6 +5662,14 @@ button.site-sheetview__status-chip:hover {
         display: none;
     }
 
+    .site-topbar__label-longo {
+        display: none;
+    }
+
+    .site-topbar__label-curto {
+        display: inline;
+    }
+
     .site-painel-stats {
         grid-template-columns: minmax(0, 1fr);
     }
@@ -5636,6 +5681,10 @@ button.site-sheetview__status-chip:hover {
             'input'
             'hint'
             'button';
+    }
+
+    .site-config__discord-cards {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .site-topbar__cta-curto {

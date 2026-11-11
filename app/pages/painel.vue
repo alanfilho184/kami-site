@@ -5,6 +5,7 @@ import { SHEET_LIMIT_FREE } from '~~/shared/constants/sheet';
 import type { PanelResponse } from '~~/shared/types/panel';
 import { errorStatus } from '~~/shared/utils/http-error';
 import { formatDate, formatNumber } from '~~/shared/utils/formatting';
+import { connectRealtime, type RealtimeSocket } from '~/utils/realtime';
 
 interface PanelAccessItem {
     code: string;
@@ -49,8 +50,22 @@ export default defineNuxtComponent({
             panel: null as PanelResponse | null,
             needsLogin: false,
             isUnavailable: false,
-            isLoggingOut: false
+            isLoggingOut: false,
+            realtimeSocket: null as RealtimeSocket | null,
+            realtimeConnected: false,
+            realtimeHasConnected: false,
+            realtimeRefreshTimer: null as number | null
         };
+    },
+    mounted() {
+        this.startRealtime();
+        window.addEventListener('focus', this.handlePanelFocus);
+        document.addEventListener('visibilitychange', this.handlePanelVisibility);
+    },
+    beforeUnmount() {
+        this.stopRealtime();
+        window.removeEventListener('focus', this.handlePanelFocus);
+        document.removeEventListener('visibilitychange', this.handlePanelVisibility);
     },
     computed: {
         displayName(): string {
@@ -111,6 +126,93 @@ export default defineNuxtComponent({
         formatUpdatedAt(value: string): string {
             return formatDate(value);
         },
+        startRealtime(): void {
+            const socket = connectRealtime();
+
+            if (!socket) {
+                return;
+            }
+
+            this.realtimeSocket = socket;
+            this.realtimeConnected = socket.connected;
+            this.realtimeHasConnected = socket.connected;
+            socket.on('connect', this.handleRealtimeConnect);
+            socket.on('disconnect', this.handleRealtimeDisconnect);
+            socket.on('sheet.created', this.handleRealtimeChange);
+            socket.on('sheet.updated', this.handleRealtimeChange);
+            socket.on('sheet.deleted', this.handleRealtimeChange);
+            socket.on('sheet.unpublished', this.handleRealtimeChange);
+            socket.on('sheet.access_changed', this.handleRealtimeChange);
+            socket.on('user.linked', this.handleRealtimeChange);
+        },
+        stopRealtime(): void {
+            if (this.realtimeRefreshTimer !== null) {
+                window.clearTimeout(this.realtimeRefreshTimer);
+                this.realtimeRefreshTimer = null;
+            }
+
+            if (this.realtimeSocket) {
+                this.realtimeSocket.off('connect', this.handleRealtimeConnect);
+                this.realtimeSocket.off('disconnect', this.handleRealtimeDisconnect);
+                this.realtimeSocket.off('sheet.created', this.handleRealtimeChange);
+                this.realtimeSocket.off('sheet.updated', this.handleRealtimeChange);
+                this.realtimeSocket.off('sheet.deleted', this.handleRealtimeChange);
+                this.realtimeSocket.off('sheet.unpublished', this.handleRealtimeChange);
+                this.realtimeSocket.off('sheet.access_changed', this.handleRealtimeChange);
+                this.realtimeSocket.off('user.linked', this.handleRealtimeChange);
+                this.realtimeSocket = null;
+            }
+
+            this.realtimeConnected = false;
+            this.realtimeHasConnected = false;
+        },
+        handleRealtimeConnect(): void {
+            const reconnected = this.realtimeHasConnected;
+
+            this.realtimeConnected = true;
+            this.realtimeHasConnected = true;
+
+            if (reconnected) {
+                this.queueRealtimeRefresh();
+            }
+        },
+        handleRealtimeDisconnect(): void {
+            this.realtimeConnected = false;
+        },
+        handleRealtimeChange(): void {
+            this.queueRealtimeRefresh();
+        },
+        handlePanelFocus(): void {
+            this.queueRealtimeRefresh();
+        },
+        handlePanelVisibility(): void {
+            if (document.visibilityState === 'visible') {
+                this.queueRealtimeRefresh();
+            }
+        },
+        queueRealtimeRefresh(): void {
+            if (this.realtimeRefreshTimer !== null) {
+                return;
+            }
+
+            this.realtimeRefreshTimer = window.setTimeout(() => {
+                this.realtimeRefreshTimer = null;
+                void this.refreshPanel();
+            }, 250);
+        },
+        async refreshPanel(): Promise<void> {
+            try {
+                this.panel = await $fetch<PanelResponse>('/api/painel');
+                this.needsLogin = false;
+                this.isUnavailable = false;
+            } catch (error) {
+                if (errorStatus(error) === 401) {
+                    this.panel = null;
+                    this.needsLogin = true;
+                    this.stopRealtime();
+                }
+            }
+        },
         async handleLogout(): Promise<void> {
             if (this.isLoggingOut) {
                 return;
@@ -133,7 +235,10 @@ export default defineNuxtComponent({
 </script>
 
 <template>
-    <div class="site-painel-pagina">
+    <div
+        class="site-painel-pagina"
+        :data-panel-realtime="realtimeConnected ? 'connected' : 'pending'"
+    >
         <KamiEmptyState
             v-if="needsLogin"
             title="SESSÃO EXPIRADA"
@@ -163,7 +268,10 @@ export default defineNuxtComponent({
         <template v-else-if="panel">
             <header class="site-painel-hero site-painel-hero--comando">
                 <div class="site-painel-hero__conteudo">
-                    <p class="site-eyebrow">ÁREA DO JOGADOR</p>
+                    <div class="site-painel-hero__selo">
+                        <p class="site-eyebrow">ÁREA DO JOGADOR</p>
+                        <KamiRealtimeChip />
+                    </div>
                     <h1 class="site-painel__titulo">PAINEL.</h1>
                     <p class="site-prosa site-painel__descricao">
                         Bem-vindo de volta, {{ displayName }}. Acompanhe suas fichas, o que está ao vivo e os próximos

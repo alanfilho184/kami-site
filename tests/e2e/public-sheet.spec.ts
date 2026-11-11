@@ -155,6 +155,10 @@ test('ficha privada responde 404 e o link público abre sem login e sem indexaç
         expect(publicNavigation?.status()).toBe(200);
         await expect(publicPage.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow');
         await expect(publicPage).toHaveTitle(`${sheet.name} - Kami`);
+        await expect(publicPage.locator('meta[property="og:image"]')).toHaveAttribute(
+            'content',
+            `${baseUrl}/marca/logo-256.webp`
+        );
         await expect(publicPage.locator('.site-ficha-publica__titulo')).toHaveText(sheet.name);
         await expect(publicPage.getByText('Porto Cinza')).toBeVisible();
         await expect(publicPage.locator('.site-editor__topo')).toHaveCount(0);
@@ -170,6 +174,69 @@ test('ficha privada responde 404 e o link público abre sem login e sem indexaç
         expect(hiddenAgain.status()).toBe(404);
     } finally {
         await anonymous.close();
+        await deleteCurrentSheet(page, sheet.id);
+    }
+});
+
+test('o preview da ficha pública expõe nome, criador e primeira imagem', async ({ page }) => {
+    test.setTimeout(90_000);
+    test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
+
+    const imageUrl = `${baseUrl}/exemplos/exemplo-discord.webp`;
+    let sheet = await createSheetThroughApi(page, uniqueSheetName());
+
+    try {
+        const update = await page.request.patch(`/api/fichas/${sheet.id}`, {
+            data: {
+                name: sheet.name,
+                version: sheet.version,
+                attributes: {
+                    sections: [
+                        {
+                            name: 'Retrato',
+                            type: 0,
+                            position: 0,
+                            attributes: [{ name: 'Imagem', type: 2, position: 0, value: imageUrl }]
+                        }
+                    ]
+                },
+                layout: null
+            },
+            headers: { origin: baseUrl }
+        });
+
+        expect(update.status()).toBe(200);
+        sheet = (await update.json()) as SheetDetail;
+        sheet = await shareSheet(page, sheet, { isPublic: true });
+
+        const sessionResponse = await page.request.get('/api/auth/session');
+        const session = (await sessionResponse.json()) as { user?: { username?: string | null } };
+        const username = session.user?.username;
+
+        expect(username).toBeTruthy();
+
+        const anonymous = await anonymousContext(page);
+        const previewPage = await anonymous.newPage();
+
+        try {
+            await previewPage.goto(publicUrl(sheet));
+
+            await expect(previewPage.locator('meta[property="og:title"]')).toHaveAttribute(
+                'content',
+                `Ficha "${sheet.name}" - Kami`
+            );
+            await expect(previewPage.locator('meta[property="og:description"]')).toHaveAttribute(
+                'content',
+                `Criada por: ${username}. Ficha de personagem compartilhada no Kami.`
+            );
+            await expect(previewPage.locator('meta[property="og:image"]')).toHaveAttribute('content', imageUrl);
+            await expect(previewPage.locator('meta[property="og:url"]')).toHaveAttribute('content', publicUrl(sheet));
+            await expect(previewPage.locator('meta[name="twitter:card"]')).toHaveAttribute('content', 'summary');
+        } finally {
+            await previewPage.close();
+            await anonymous.close();
+        }
+    } finally {
         await deleteCurrentSheet(page, sheet.id);
     }
 });
@@ -195,6 +262,47 @@ test('as URLs antigas redirecionam para a URL canônica', async ({ page }) => {
         expect(legacyPublic.status()).toBe(302);
         expect(legacyPublic.headers()['location']).toBe(sheetPath(sheet.userId, sheet.name));
     } finally {
+        await deleteCurrentSheet(page, sheet.id);
+    }
+});
+
+test('ficha pública recebe atualizações em tempo real sem autenticação', async ({ page }) => {
+    test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
+
+    const name = uniqueSheetName();
+    let sheet = await createSheetThroughApi(page, name);
+    sheet = await shareSheet(page, sheet, { isPublic: true });
+
+    const anonymous = await anonymousContext(page);
+    const publicPage = await anonymous.newPage();
+
+    try {
+        await publicPage.goto(publicPath(sheet));
+        await waitForHydration(publicPage);
+        await expect(publicPage.locator('[data-public-realtime="subscribed"]')).toBeVisible({ timeout: 10_000 });
+        await expect(publicPage.locator('[data-realtime-status="connected"]')).toContainText('TEMPO REAL');
+
+        const updatedName = `${name} viva`;
+        const response = await page.request.patch(`/api/fichas/${sheet.id}`, {
+            data: {
+                name: updatedName,
+                attributes: sheet.attributes,
+                layout: sheet.layout,
+                version: sheet.version
+            },
+            headers: { origin: baseUrl }
+        });
+
+        expect(response.status()).toBe(200);
+        const updated = (await response.json()) as SheetDetail;
+
+        await expect(publicPage.locator('.site-ficha-publica__titulo')).toHaveText(updatedName);
+        await expect(publicPage.locator('[data-public-realtime="subscribed"]')).toBeVisible({ timeout: 10_000 });
+
+        await shareSheet(page, updated, { isPublic: false });
+        await expect(publicPage.getByText('FICHA INDISPONÍVEL', { exact: true })).toBeVisible({ timeout: 10_000 });
+    } finally {
+        await anonymous.close();
         await deleteCurrentSheet(page, sheet.id);
     }
 });
@@ -234,6 +342,22 @@ test('a senha da ficha pública libera o acesso por cookie e pode ser removida',
 
         await expect(publicPage.locator('.site-ficha-publica__titulo')).toHaveText(sheet.name);
         await expect(publicPage.getByText('FICHA PROTEGIDA')).toHaveCount(0);
+        await expect(publicPage.locator('[data-public-realtime="subscribed"]')).toBeVisible({ timeout: 10_000 });
+
+        const updatedName = `${sheet.name} viva`;
+        const update = await page.request.patch(`/api/fichas/${sheet.id}`, {
+            data: {
+                name: updatedName,
+                attributes: sheet.attributes,
+                layout: sheet.layout,
+                version: sheet.version
+            },
+            headers: { origin: baseUrl }
+        });
+
+        expect(update.status()).toBe(200);
+        sheet = (await update.json()) as SheetDetail;
+        await expect(publicPage.locator('.site-ficha-publica__titulo')).toHaveText(updatedName);
 
         const authorized = await anonymous.request.get(
             `${baseUrl}/api/ficha/${sheet.userId}/${encodeURIComponent(sheet.name)}`

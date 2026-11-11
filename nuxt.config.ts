@@ -63,7 +63,10 @@ export default defineNuxtConfig({
         }
     },
     nitro: {
-        compressPublicAssets: true
+        compressPublicAssets: true,
+        experimental: {
+            websocket: true
+        }
     },
     // Dev aberto para túneis e links externos (Discord). Não afeta o build.
     vite: {

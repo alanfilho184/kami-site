@@ -2,7 +2,7 @@ import type { QueryResultRow } from 'pg';
 import SQL from 'sql-template-strings';
 import type { StatisticsData, StatisticsSource } from '~~/shared/types/statistics';
 import { queryOne } from '../utils/database';
-import { logger } from '../utils/logger';
+import { logger } from '../logs';
 
 export type { StatisticsData, StatisticsSource } from '~~/shared/types/statistics';
 
@@ -181,7 +181,11 @@ export function createStatisticsService(dependencies: Partial<StatisticsDependen
             return buildResponse(data, instant, false, 'query');
         } catch (error) {
             cache.failedAt = instant;
-            warn('Falha ao consultar estatísticas da landing', { error });
+            warn('Falha ao consultar estatísticas da landing', {
+                event: 'statistics.query_failed',
+                error_name: error instanceof Error ? error.name : undefined,
+                error
+            });
             return cachedResponse(instant);
         }
     }

@@ -7,7 +7,7 @@ import {
     registrationService
 } from '../../services/registration.service';
 import { sessionService } from '../../services/session.service';
-import { logger } from '../../utils/logger';
+import { logger } from '../../logs';
 import { consumeRegisterAttempt, consumeRegisterIp, resetRegisterEmail } from '../../utils/rate-limit';
 import { getClientIp, getUserAgent } from '../../utils/request-metadata';
 import { assertSameOrigin } from '../../utils/request-origin';
@@ -24,6 +24,8 @@ function tooManyAttempts(event: H3Event, retryAfterSeconds: number): AuthErrorRe
 
 export default defineEventHandler(async (event: H3Event): Promise<AuthResponse | AuthErrorResponse> => {
     assertSameOrigin(event);
+
+    const log = logger.forRequest(event);
 
     let body: unknown = null;
 
@@ -61,17 +63,32 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
     } catch (error) {
         if (error instanceof UsernameAlreadyTakenError) {
             resetRegisterEmail(email);
+            log.warn('Nome de usuário já cadastrado', {
+                event: 'auth.register.failed',
+                error_code: 'username_taken',
+                auth_method: 'password'
+            });
             setResponseStatus(event, 409);
             return { message: 'Este nome de usuário já está em uso. Escolha outro.' };
         }
 
         if (error instanceof EmailAlreadyRegisteredError) {
+            log.warn('E-mail já cadastrado', {
+                event: 'auth.register.failed',
+                error_code: 'email_registered',
+                auth_method: 'password'
+            });
             setResponseStatus(event, 409);
             return { message: 'Este e-mail já está cadastrado. Tente entrar.' };
         }
 
         resetRegisterEmail(email);
-        logger.error('Falha ao criar conta', { error });
+        log.error('Falha ao criar conta', {
+            event: 'auth.register.failed',
+            error_code: 'register_unavailable',
+            auth_method: 'password',
+            error
+        });
         setResponseStatus(event, 503);
         return { message: unavailableMessage };
     }
@@ -91,7 +108,12 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
         setSessionCookie(event, session.token, session.expiresAt);
     } catch (error) {
         resetRegisterEmail(email);
-        logger.error('Falha ao criar sessão após cadastro', { error });
+        log.error('Falha ao criar sessão após cadastro', {
+            event: 'auth.session.create_failed',
+            error_code: 'session_unavailable',
+            auth_method: 'password',
+            error
+        });
         setResponseStatus(event, 503);
         return { message: unavailableMessage };
     }
@@ -99,10 +121,10 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
     try {
         await sessionService.cleanup();
     } catch (error) {
-        logger.warn('Falha ao limpar sessões expiradas', { error });
+        log.warn('Falha ao limpar sessões expiradas', { event: 'auth.sessions.cleanup_failed', error });
     }
 
-    logger.info('Cadastro realizado', { user_id: user.id });
+    log.info('Cadastro realizado', { event: 'auth.register', user_id: user.id, auth_method: 'password' });
     setResponseStatus(event, 201);
 
     return { user };

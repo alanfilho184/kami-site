@@ -38,6 +38,15 @@ describe('token de acesso à ficha pública', () => {
         expect(verifySheetAccessToken(token, 7, now + SHEET_ACCESS_TTL_SECONDS * 1000 + 1)).toBe(false);
     });
 
+    it('vincula o token à senha atual e invalida quando ela muda', () => {
+        const currentHash = '$2b$12$hash-atual';
+        const token = createSheetAccessToken(7, now, currentHash);
+
+        expect(verifySheetAccessToken(token, 7, now + 1000, currentHash)).toBe(true);
+        expect(verifySheetAccessToken(token, 7, now + 1000, '$2b$12$hash-novo')).toBe(false);
+        expect(verifySheetAccessToken(token, 7, now + 1000)).toBe(false);
+    });
+
     it('recusa o token de outra ficha', () => {
         const token = createSheetAccessToken(7, now);
 

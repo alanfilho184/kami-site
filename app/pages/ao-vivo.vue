@@ -54,8 +54,8 @@ export default defineNuxtComponent({
             <p class="site-eyebrow">FICHAS AO VIVO</p>
             <h1 class="site-painel__titulo">AO VIVO.</h1>
             <p class="site-prosa site-painel__descricao">
-                As fichas vinculadas a mensagens do Discord. O vínculo é gerenciado pelo bot; a sincronização em tempo
-                real chega na D5.
+                As fichas vinculadas a mensagens do Discord. O vínculo é gerenciado pelo bot e as mensagens são
+                sincronizadas automaticamente.
             </p>
         </header>
 
@@ -90,45 +90,51 @@ export default defineNuxtComponent({
             label="VÍNCULOS COM O DISCORD"
             code="IRT"
         >
-            <ul
+            <div
                 v-if="liveSheets.length"
-                class="site-painel-lista site-painel-lista--viva"
+                class="site-fichas__grade"
             >
-                <li
+                <article
                     v-for="item in liveSheets"
                     :key="item.id"
-                    class="site-painel-lista__item site-painel-lista__item--link"
+                    class="site-fichas__card"
                 >
-                    <NuxtLink
-                        :to="`/fichas/${item.sheetId}`"
-                        class="site-painel-lista__link"
-                    >
-                        <div class="site-painel-lista__principal">
-                            <p class="site-painel-lista__nome">{{ item.sheetName }}</p>
-                            <p class="site-painel-lista__meta">
-                                CANAL {{ item.channelId }} · MENSAGEM {{ item.messageId }}
-                            </p>
-                            <p class="site-painel-lista__meta">ÚLTIMO USO EM {{ formatLastUse(item.lastUse) }}</p>
+                    <header class="site-fichas__card-topo">
+                        <div class="site-fichas__card-identidade">
+                            <span class="site-fichas__card-codigo">FICHA #{{ item.sheetId }}</span>
+                            <h3 class="site-fichas__card-nome">{{ item.sheetName }}</h3>
                         </div>
-                        <div class="site-painel-lista__selos">
+                        <div class="site-fichas__card-selos">
                             <KamiChip status="live">AO VIVO</KamiChip>
                         </div>
-                        <span class="site-painel-lista__abrir">
+                    </header>
+
+                    <div class="site-fichas__card-corpo">
+                        <p class="site-fichas__card-meta">CANAL {{ item.channelId }}</p>
+                        <p class="site-fichas__card-meta">MENSAGEM {{ item.messageId }}</p>
+                        <p class="site-fichas__card-meta">ÚLTIMO USO EM {{ formatLastUse(item.lastUse) }}</p>
+                    </div>
+
+                    <footer class="site-fichas__card-acoes">
+                        <KamiButton
+                            size="sm"
+                            variant="primary"
+                            :to="`/fichas/${item.sheetId}`"
+                        >
                             ABRIR
-                            <span aria-hidden="true">→</span>
-                        </span>
-                    </NuxtLink>
-                </li>
-            </ul>
+                        </KamiButton>
+                    </footer>
+                </article>
+            </div>
             <KamiEmptyState
                 v-else
                 title="NENHUMA FICHA AO VIVO"
-                description="Envie uma ficha para o Discord para vê-la aqui. A gestão de vínculos pelo site chega na D5."
+                description="Use o bot para enviar uma ficha ao Discord e ela aparecerá aqui."
             />
 
-            <p class="site-painel__nota">
-                Esta área é somente leitura. O bot continua sendo o dono do vínculo com o Discord; o tempo real e a fila
-                de sincronização entram na D5.
+            <p class="site-painel__nota site-ao-vivo__nota">
+                As fichas ao vivo podem ser editadas no site. O bot mantém as mensagens do Discord sincronizadas
+                automaticamente.
             </p>
         </KamiPanel>
     </div>

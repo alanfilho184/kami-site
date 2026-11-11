@@ -2,7 +2,7 @@ import type { H3Event } from 'h3';
 import type { SheetDetail } from '~~/shared/types/sheet';
 import { findPublicSheet, sheetRequiresPassword } from '../../../services/public-sheet.service';
 import { toDetail } from '../../../services/sheet.service';
-import { logger } from '../../../utils/logger';
+import { logger } from '../../../logs';
 import { hasSheetAccess } from '../../../utils/sheet-access';
 
 interface PublicSheetErrorResponse {
@@ -36,6 +36,7 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
     setHeader(event, 'X-Robots-Tag', 'noindex, nofollow');
     setHeader(event, 'Cache-Control', 'private, no-store');
 
+    const log = logger.forRequest(event);
     const userId = Number(getRouterParam(event, 'userId'));
     const sheetName = readSheetName(event);
     const preferredId = readPreferredId(event);
@@ -53,14 +54,25 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
             return { message: 'Ficha não encontrada.', code: 'sheet_not_found' };
         }
 
-        if (sheetRequiresPassword(row) && !hasSheetAccess(event, row.id)) {
+        if (sheetRequiresPassword(row) && !hasSheetAccess(event, row.id, row.sheet_password)) {
+            log.info('Ficha pública protegida por senha', {
+                event: 'sheet.public.read.password_required',
+                auth_method: 'anonymous',
+                has_password: true,
+                sheet_owner_id: userId,
+                sheet_id: row.id
+            });
             setResponseStatus(event, 401);
             return { message: 'Esta ficha precisa de senha.', code: 'sheet_password_required' };
         }
 
         return toDetail(row);
     } catch (error) {
-        logger.error('Falha ao carregar ficha pública', { error, user_id: userId });
+        log.error('Falha ao carregar ficha pública', {
+            event: 'sheet.public.read.failed',
+            error,
+            sheet_owner_id: userId
+        });
         setResponseStatus(event, 503);
         return { message: 'Ficha indisponível. Tente novamente em instantes.' };
     }

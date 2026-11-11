@@ -125,6 +125,8 @@ export interface SheetDetail {
     updatedAt: string;
     attributes: SheetAttributes;
     layout: SheetLayout | null;
+    /** Nome público de quem criou; presente apenas na visão pública. */
+    creatorName?: string;
 }
 
 export interface SheetQuota {
@@ -173,5 +175,6 @@ export interface SheetErrorResponse {
         | 'sheet_conflict'
         | 'sheet_name_taken'
         | 'sheet_live'
-        | 'sheet_limit_reached';
+        | 'sheet_limit_reached'
+        | 'rate_limited';
 }

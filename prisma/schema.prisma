@@ -50,6 +50,7 @@ model users {
   macros             macros[]
   announcementsSeens announcements_seen[]
   site_sessions      site_sessions[]
+  site_sync_codes    site_sync_codes[]
 
   @@index([last_use])
 }
@@ -69,6 +70,44 @@ model site_sessions {
   @@index([expires_at])
 }
 
+model socket_io_attachments {
+  id         BigInt   @id @default(autoincrement())
+  created_at DateTime @default(now()) @db.Timestamptz
+  payload    Bytes
+
+  @@index([created_at])
+}
+
+model site_sync_codes {
+  id                       Int       @id @default(autoincrement())
+  user_id                  Int
+  code_hash                String    @unique @db.Char(64)
+  status                   String    @default("pending") @db.VarChar(16)
+  claimed_discord_id       String?
+  claimed_discord_username String?
+  claimed_at               DateTime? @db.Timestamptz
+  confirmed_at             DateTime? @db.Timestamptz
+  expires_at               DateTime  @db.Timestamptz
+  created_at               DateTime  @default(now()) @db.Timestamptz
+  user                     users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, status])
+  @@index([expires_at])
+  @@index([claimed_discord_id])
+}
+
+model site_account_merges {
+  id           Int      @id @default(autoincrement())
+  from_user_id Int
+  to_user_id   Int
+  discord_id   String
+  snapshot     Json
+  created_at   DateTime @default(now()) @db.Timestamptz
+
+  @@index([to_user_id])
+  @@index([created_at])
+}
+
 model blocked_users {
   id           Int      @id @default(autoincrement())
   User         users    @relation(fields: [user_id], references: [id])
@@ -81,15 +120,17 @@ model blocked_users {
 }
 
 model irt_sheets {
-  id         Int      @id @default(autoincrement())
-  User       users    @relation(fields: [user_id], references: [id])
-  user_id    Int
-  Sheet_Id   sheets   @relation(fields: [sheet_id], references: [id])
-  sheet_id   Int
-  msg_id     String
-  channel_id String
-  last_use   DateTime @default(now()) @updatedAt @db.Timestamptz
-  created_at DateTime @default(now())
+  id             Int       @id @default(autoincrement())
+  User           users     @relation(fields: [user_id], references: [id])
+  user_id        Int
+  Sheet_Id       sheets    @relation(fields: [sheet_id], references: [id])
+  sheet_id       Int
+  msg_id         String
+  channel_id     String
+  last_synced_at DateTime? @db.Timestamptz
+  sync_failures  Int       @default(0)
+  last_use       DateTime  @default(now()) @updatedAt @db.Timestamptz
+  created_at     DateTime  @default(now())
 
   @@index([sheet_id])
   @@index([msg_id])

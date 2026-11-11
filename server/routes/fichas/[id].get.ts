@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3';
 import { sheetService } from '../../services/sheet.service';
 import { getAuthUser } from '../../utils/auth-context';
-import { logger } from '../../utils/logger';
+import { logger } from '../../logs';
 import { sheetUrl } from '~~/shared/utils/sheet-url';
 
 export default defineEventHandler(async (event: H3Event) => {
@@ -23,7 +23,11 @@ export default defineEventHandler(async (event: H3Event) => {
 
         return sendRedirect(event, sheetUrl(sheet.userId, sheet.name, sheet.id), 302);
     } catch (error) {
-        logger.warn('Redirecionamento de ficha antiga não encontrou a ficha', { error, sheet_id: sheetId });
+        logger.warn('Redirecionamento de ficha antiga não encontrou a ficha', {
+            event: 'sheet.redirect_not_found',
+            error,
+            sheet_id: sheetId
+        });
         setResponseStatus(event, 404);
         return { message: 'Ficha não encontrada.' };
     }

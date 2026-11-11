@@ -1,5 +1,5 @@
 import { createSessionService } from '../services/session.service';
-import { logger } from '../utils/logger';
+import { logger } from '../logs';
 import { clearSessionCookie, readSessionToken } from '../utils/session-cookie';
 
 const ignoredPrefixes = ['/_nuxt/', '/__nuxt', '/fonts/', '/marca/', '/favicon.ico', '/robots.txt', '/sitemap.xml'];
@@ -48,11 +48,15 @@ export default defineEventHandler(async event => {
             session = await sessionService.find(token);
         } catch (error) {
             validationFailed = true;
-            logger.warn('Falha ao validar sessão', { error });
+            logger.warn('Falha ao validar sessão', { event: 'auth.session.validation_failed', error });
         }
 
         if (session) {
             event.context.auth = session;
+
+            if (event.context.log) {
+                event.context.log.user_id = session.user.id;
+            }
         } else if (!validationFailed) {
             clearSessionCookie(event);
         }

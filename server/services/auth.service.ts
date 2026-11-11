@@ -3,7 +3,7 @@ import type { QueryResultRow } from 'pg';
 import SQL from 'sql-template-strings';
 import type { AuthUser } from '~~/shared/types/auth';
 import { query, queryOne } from '../utils/database';
-import { logger } from '../utils/logger';
+import { logger } from '../logs';
 
 /**
  * Hash descartável usado quando a conta não existe ou não tem senha. A

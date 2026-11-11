@@ -10,18 +10,25 @@ import type {
     SheetSharingInput,
     SheetUpdateInput
 } from '~~/shared/types/sheet';
+import type { SheetDeletedIrtMessage } from '~~/shared/types/realtime';
 import {
     createEmptySheetAttributes,
     normalizeSheetAttributes,
     normalizeSheetLayout,
     sheetNameSchema
 } from '../schemas/sheet';
-import { queryOne } from '../utils/database';
+import { query, queryOne, withTransaction } from '../utils/database';
+import {
+    emitSheetAccessChanged,
+    emitSheetCreated,
+    emitSheetDeleted,
+    emitSheetUnpublished,
+    emitSheetUpdated
+} from './realtime.service';
 import {
     InvalidSheetError,
     SheetConflictError,
     SheetLimitError,
-    SheetLiveError,
     SheetNameTakenError,
     SheetNotFoundError
 } from './sheet-errors';
@@ -38,10 +45,16 @@ export interface SheetRow extends QueryResultRow {
     last_use: Date | string;
     created_at: Date | string;
     is_live: boolean;
+    creator_name?: string | null;
 }
 
 export interface ExistingSheetRow extends QueryResultRow {
     id: number;
+}
+
+export interface IrtSheetRow extends QueryResultRow {
+    channel_id: string;
+    msg_id: string;
 }
 
 export interface SheetCountRow extends QueryResultRow {
@@ -87,6 +100,7 @@ export interface SheetDependencies {
         input: UpdateSheetSharingRecordInput
     ) => Promise<SheetRow | null>;
     deleteSheetRecord: (userId: number, sheetId: number, version: string) => Promise<number | null>;
+    listIrtSheets: (userId: number, sheetId: number) => Promise<IrtSheetRow[]>;
 }
 
 const COPY_NAME_MAX_ATTEMPTS = 1000;
@@ -104,6 +118,7 @@ function toIso(value: Date | string): string {
 export function toDetail(row: SheetRow): SheetDetail {
     const isLegacy = Boolean(row.legacy);
     const attributes = normalizeSheetAttributes(row.attributes, isLegacy);
+    const creatorName = row.creator_name?.trim();
 
     return {
         id: row.id,
@@ -117,7 +132,8 @@ export function toDetail(row: SheetRow): SheetDetail {
         createdAt: toIso(row.created_at),
         updatedAt: toIso(row.last_use),
         attributes,
-        layout: normalizeSheetLayout(row.sheet_layout, attributes.sections)
+        layout: normalizeSheetLayout(row.sheet_layout, attributes.sections),
+        ...(creatorName ? { creatorName } : {})
     };
 }
 
@@ -297,7 +313,6 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                     )
                 WHERE s.id = ${sheetId}
                   AND s.user_id = ${userId}
-                  AND NOT EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id)
                   AND date_trunc('milliseconds', s.last_use) = ${input.version}::timestamptz
                 RETURNING
                     s.id,
@@ -324,7 +339,6 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                     )
                 WHERE s.id = ${sheetId}
                   AND s.user_id = ${userId}
-                  AND NOT EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id)
                   AND date_trunc('milliseconds', s.last_use) = ${input.version}::timestamptz
                 RETURNING
                     s.id,
@@ -352,7 +366,6 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                     )
                 WHERE s.id = ${sheetId}
                   AND s.user_id = ${userId}
-                  AND NOT EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id)
                   AND date_trunc('milliseconds', s.last_use) = ${input.version}::timestamptz
                 RETURNING
                     s.id,
@@ -367,30 +380,47 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
                     s.created_at,
                     EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id) AS is_live
             `));
+    const listIrtSheets =
+        dependencies.listIrtSheets ??
+        ((userId: number, sheetId: number) =>
+            query<IrtSheetRow>(SQL`
+                SELECT channel_id, msg_id
+                FROM irt_sheets
+                WHERE sheet_id = ${sheetId}
+                  AND user_id = ${userId}
+            `));
+
     const deleteSheetRecord =
         dependencies.deleteSheetRecord ??
-        (async (userId: number, sheetId: number, version: string) => {
-            const row = await queryOne<ExistingSheetRow>(SQL`
-                DELETE FROM sheets s
-                WHERE s.id = ${sheetId}
-                  AND s.user_id = ${userId}
-                  AND NOT EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id)
-                  AND date_trunc('milliseconds', s.last_use) = ${version}::timestamptz
-                RETURNING s.id
-            `);
+        ((userId: number, sheetId: number, version: string) =>
+            withTransaction(async client => {
+                const lockStatement = SQL`
+                    SELECT id
+                    FROM sheets
+                    WHERE id = ${sheetId}
+                      AND user_id = ${userId}
+                      AND date_trunc('milliseconds', last_use) = ${version}::timestamptz
+                    FOR UPDATE
+                `;
+                const deleteIrtStatement = SQL`DELETE FROM irt_sheets WHERE sheet_id = ${sheetId}`;
+                const deleteSheetStatement = SQL`DELETE FROM sheets WHERE id = ${sheetId}`;
+                const locked = await client.query<ExistingSheetRow>(lockStatement.text, lockStatement.values);
 
-            return row?.id ?? null;
-        });
+                if (!locked.rows[0]) {
+                    return null;
+                }
+
+                await client.query(deleteIrtStatement.text, deleteIrtStatement.values);
+                await client.query(deleteSheetStatement.text, deleteSheetStatement.values);
+
+                return sheetId;
+            }));
 
     async function requireEditable(userId: number, sheetId: number): Promise<SheetRow> {
         const row = await findSheet(userId, sheetId);
 
         if (!row) {
             throw new SheetNotFoundError();
-        }
-
-        if (row.is_live) {
-            throw new SheetLiveError();
         }
 
         return row;
@@ -421,10 +451,6 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
 
         if (!row) {
             throw new SheetNotFoundError();
-        }
-
-        if (row.is_live) {
-            throw new SheetLiveError();
         }
 
         throw new SheetConflictError();
@@ -475,7 +501,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
             throw new Error('Ficha não criada');
         }
 
-        return toDetail(row);
+        const detail = toDetail(row);
+        emitSheetCreated(detail);
+        return detail;
     }
 
     async function updateSheet(userId: number, sheetId: number, input: SheetUpdateInput): Promise<SheetDetail> {
@@ -495,7 +523,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
             return diagnoseWriteFailure(userId, sheetId);
         }
 
-        return toDetail(row);
+        const detail = toDetail(row);
+        emitSheetUpdated(detail);
+        return detail;
     }
 
     async function renameSheet(userId: number, sheetId: number, input: SheetRenameInput): Promise<SheetDetail> {
@@ -512,7 +542,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
             return diagnoseWriteFailure(userId, sheetId);
         }
 
-        return toDetail(row);
+        const detail = toDetail(row);
+        emitSheetUpdated(detail);
+        return detail;
     }
 
     async function updateSheetSharing(userId: number, sheetId: number, input: SheetSharingInput): Promise<SheetDetail> {
@@ -537,17 +569,37 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
             return diagnoseWriteFailure(userId, sheetId);
         }
 
-        return toDetail(row);
+        const detail = toDetail(row);
+        emitSheetUpdated(detail);
+
+        if (current.is_public && !detail.isPublic) {
+            emitSheetUnpublished(detail.id, detail.userId, detail.version, detail.name);
+        } else if (detail.isPublic && input.password !== undefined) {
+            emitSheetAccessChanged(detail.id, detail.userId, detail.version, detail.name);
+        }
+
+        return detail;
     }
 
     async function deleteSheet(userId: number, sheetId: number, version: string): Promise<void> {
-        await requireEditable(userId, sheetId);
+        const current = await requireEditable(userId, sheetId);
+
+        // A transação de delete apaga irt_sheets antes de sheets (FK RESTRICT).
+        // Precisamos guardar os ids antes para o bot remover o botão das
+        // mensagens IRT no Discord após o evento.
+        const irtRows = await listIrtSheets(userId, sheetId);
+        const irtSheets: SheetDeletedIrtMessage[] = irtRows.map(row => ({
+            channelId: row.channel_id,
+            messageId: row.msg_id
+        }));
 
         const deletedId = await deleteSheetRecord(userId, sheetId, version);
 
         if (deletedId === null) {
             return diagnoseWriteFailure(userId, sheetId);
         }
+
+        emitSheetDeleted(sheetId, userId, version, current.is_public, current.sheet_name, irtSheets);
     }
 
     async function duplicateSheet(userId: number, sheetId: number, isPremium = false): Promise<SheetDetail> {
@@ -569,7 +621,9 @@ export function createSheetService(dependencies: Partial<SheetDependencies> = {}
             throw new Error('Ficha não duplicada');
         }
 
-        return toDetail(row);
+        const detail = toDetail(row);
+        emitSheetCreated(detail);
+        return detail;
     }
 
     async function getQuota(userId: number, isPremium: boolean): Promise<SheetQuota> {

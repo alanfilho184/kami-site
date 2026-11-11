@@ -27,6 +27,7 @@ export default defineNuxtComponent({
         return {
             user: null as AuthUser | null,
             discordUrl: String(config.public.discordInvite ?? ''),
+            botInvite: String(config.public.botInvite ?? ''),
             topbarLinks: landing.topbar.links,
             topbarSubtitle: landing.topbar.subtitle,
             topbarCta: landing.topbar.cta,
@@ -66,6 +67,8 @@ export default defineNuxtComponent({
         </a>
         <KamiTopbar
             :discord-url="discordUrl"
+            :bot-invite="botInvite"
+            :authenticated="Boolean(user)"
             :subtitle="topbarSubtitle"
             :cta="user ? 'PAINEL' : topbarCta"
             :short-cta="user ? 'PAINEL' : topbarShortCta"

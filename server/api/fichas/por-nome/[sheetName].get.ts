@@ -3,7 +3,7 @@ import type { SheetDetail, SheetErrorResponse } from '~~/shared/types/sheet';
 import { resolveSheetError } from '../../../services/sheet-errors';
 import { sheetService } from '../../../services/sheet.service';
 import { getAuthUser } from '../../../utils/auth-context';
-import { logger } from '../../../utils/logger';
+import { logger } from '../../../logs';
 
 function readSheetName(event: H3Event): string {
     const raw = getRouterParam(event, 'sheetName') ?? '';
@@ -40,7 +40,7 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
             return failure.response;
         }
 
-        logger.error('Falha ao carregar ficha pelo nome', { error });
+        logger.error('Falha ao carregar ficha pelo nome', { event: 'sheet.read_by_name_failed', error });
         setResponseStatus(event, 503);
         return { message: 'Ficha indisponível. Tente novamente em instantes.' };
     }

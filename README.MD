@@ -3,7 +3,8 @@
 Site público do Kami: landing, estatísticas, ficha de amostra, documentos legais,
 cadastro, painel do jogador e editor de fichas. O projeto está com **D2, D2.1, D2.2,
 D2.3, D3 (com D3.1–D3.4) e D4 (com D4.1–D4.2)** concluídas no desenvolvimento; o
-release `6.2.0` aguarda migração no `kami_prod`, revisão jurídica e promoção.
+release `6.2.0` aguarda migração no `kami_prod`, revisão jurídica e promoção. A D5
+(tempo real e sincronização) está em andamento.
 
 **Versão de desenvolvimento:** `6.2.0` (produção: `6.0.0`).
 
@@ -21,7 +22,7 @@ O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJ
 
 - Landing em `/` com narrativa de produto, estatísticas reais, ficha de amostra e roadmap.
 - Estatísticas com cache de 60s, fallback e estado de indisponibilidade.
-- Ficha de amostra em HTML com os cinco tipos de atributo.
+- Ficha de amostra em HTML com cabeçalho, descrição, texto, número, imagem, lista, barra, status e tabela.
 - Roadmap de macros e campanhas, sem números.
 - Jurídico em `/termos`, `/privacidade`, `/terms` e `/privacy`.
 - Cadastro em `/cadastrar` com username, e-mail, senha, aceite dos termos e login automático.
@@ -30,13 +31,17 @@ O plano completo, incluindo as entregas D0-D5, está em [PLANEJAMENTO.md](PLANEJ
 - Acessos rápidos no painel, últimas fichas clicáveis com `ABRIR`, fichas em cards com busca/filtros e linhas ao vivo clicáveis.
 - `/fichas` editável: criar, renomear, duplicar e excluir, com badges de pública, ao vivo e legada.
 - Limite de 30 fichas por conta gratuita, contando também legadas e ao vivo; contas com `users.is_premium = true` não têm limite. A UI mostra a cota e bloqueia criação/duplicação no limite.
-- `/:userId/ficha/:sheetName` com seções, os cinco tipos de atributo, salvamento explícito, Ctrl+S, aviso de saída e modo leitura; a mesma URL abre a ficha pública para quem não é o dono.
+- `/:userId/ficha/:sheetName` com seções, cabeçalho, descrição, texto, número, imagem, lista, barra, status, tabela e layout por spans, salvamento explícito, Ctrl+S, aviso de saída e modo leitura; a mesma URL abre a ficha pública para quem não é o dono.
+- Tempo real entre abas no editor com Socket.IO e adapter Postgres (D5 em andamento).
 - Fichas `legacy` normalizam na leitura e gravam o formato novo no primeiro save.
 - Concorrência por `last_use`: duas abas não sobrescrevem uma à outra; o conflito oferece recarregar.
-- `/ao-vivo` para as fichas vinculadas ao Discord (`irt_sheets`), somente leitura até a D5.
+- `/ao-vivo` para as fichas vinculadas ao Discord (`irt_sheets`), editáveis no site; o bot ativo sincroniza as mensagens e recupera edições perdidas a cada 30s.
 - `/macros` somente leitura, com aviso de que o editor está em desenvolvimento.
-- `/configuracoes` com username, status do Discord e troca de senha mediante a senha atual.
+- `/configuracoes` com username, troca de senha e vínculo/merge da conta do Discord.
+- Excluir uma ficha IRT remove os vínculos `irt_sheets` automaticamente; não é preciso desativar as mensagens no Discord antes.
 - Ficha pública na mesma URL do editor, com `noindex`, senha opcional e cookie de acesso; `/ficha/:userId/:sheetName` e `/fichas/:id` redirecionam para a URL canônica.
+- Vínculo de conta do Discord: o site gera um código, o bot valida com `/vincular <código>` e o site confirma o merge; fichas, IRT, configurações e flags da conta do bot passam para a conta do site, que fica como única sobrevivente.
+- Ficha pública também atualiza em tempo real sem login; a sala pública é separada, valida `is_public`, aceita senha pelo cookie da ficha e é encerrada ao despublicar.
 - Redirects antigos, `/comandos` com `410`, `robots.txt` e `sitemap.xml`.
 - Notificações toast globais para sucesso, aviso e erro, com ação, tempo configurável, fila e acessibilidade.
 - Open Graph com imagem gerada em `public/og/kami-site.png`.
@@ -74,7 +79,15 @@ estatísticas como indisponíveis; `/api/health` continua respondendo `200`.
 | `NUXT_PUBLIC_BOT_INVITE`     | público  | convite de instalação do bot                                  |
 | `DATABASE_URL`               | servidor | conexão com o Postgres (role `kami_app`)                      |
 | `SESSION_SECRET`             | servidor | 32+ bytes; reservado para cookies assinados (D4)              |
+| `SYNC_CODE_SECRET`           | servidor | 32+ bytes; HMAC dos códigos de vínculo (D5)                   |
+| `BOT_SYNC_TOKEN`             | servidor | 32+ bytes; autentica o bot nas salas de serviço (D5)          |
 | `LOG_LEVEL`                  | servidor | `debug`, `info`, `warn` ou `error`                            |
+| `INSTANCE_NAME`              | servidor | nome lógico da instância (logs e Socket.IO; padrão hostname)  |
+| `LOGGER_URL`                 | servidor | URL do kami-logger; opcional, junto com `LOGGER_TOKEN`        |
+| `LOGGER_TOKEN`               | servidor | token `klp_...` de ingestão do kami-logger                    |
+| `LOG_HTTP_PAYLOADS`          | servidor | `true`/`false`; captura temporária de bodies HTTP             |
+| `LOG_WS_PAYLOADS`            | servidor | `true`/`false`; captura temporária de dados de WebSocket      |
+| `LOG_PAYLOAD_MAX_BYTES`      | servidor | teto por body/dado de log (padrão `16384`)                    |
 | `DB_POOL_MAX`                | servidor | máximo de clientes no pool                                    |
 | `DB_CONNECTION_TIMEOUT_MS`   | servidor | timeout para obter um cliente                                 |
 | `DB_STATEMENT_TIMEOUT_MS`    | servidor | timeout de cada consulta                                      |
@@ -91,6 +104,7 @@ Nunca leia `process.env` fora de `server/utils/config.ts` e nunca versione o
 | `npm run preview`           | pré-visualização do build                  |
 | `npm start`                 | sobe o build (carrega `.env` se existir)   |
 | `npm run typecheck`         | `nuxt typecheck` + `vue-tsc`               |
+| `npm run typecheck:fast`    | checagem rápida de `.ts` com `tsgo` (TS7)  |
 | `npm run test`              | testes unitários (Vitest)                  |
 | `npm run test:watch`        | Vitest em modo watch                       |
 | `npm run test:e2e`          | fumaça com Playwright                      |
@@ -134,8 +148,11 @@ docs/                documentação de deploy
 ```
 
 A camada de dados segue o guia do projeto: `api` orquestra, `services` valida e
-`utils` concentram pool, config e logger. O runtime usa `pg` +
-`sql-template-strings`; o schema e as migrations ficam em `prisma/`.
+`utils` concentram pool e config. O `server/logs/` concentra o logger: uma linha
+JSON no stdout e, quando `LOGGER_URL`/`LOGGER_TOKEN` existem, uma cópia
+assíncrona para o kami-logger. A captura de bodies HTTP e dados de WebSocket é
+temporária e controlada por `LOG_HTTP_PAYLOADS`/`LOG_WS_PAYLOADS`. O runtime usa
+`pg` + `sql-template-strings`; o schema e as migrations ficam em `prisma/`.
 
 ## Banco e migrations
 

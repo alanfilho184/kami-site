@@ -92,7 +92,8 @@ server/
  ├── schemas/               # schemas Zod por recurso
  ├── middleware/            # segurança, observabilidade, sessão
  ├── plugins/               # boot e shutdown
- └── utils/                 # config, database, logger, erros, cache
+ ├── logs/                  # logger único: stdout + kami-logger
+ └── utils/                 # config, database, erros, cache
 
 prisma/
  ├── schema.prisma          # fonte de verdade do banco
@@ -149,7 +150,7 @@ Contratos:
   objeto pronto para o controller.
 - **`server/controllers/`** - única camada que executa SQL. Classes estáticas, queries em
   `controllers/<recurso>/querys/` e conversores `para<Entidade>`.
-- **`server/utils/`** - configuração, pool, logger, erros, cache e funções genéricas.
+- **`server/utils/`** - configuração, pool, erros, cache e funções genéricas. O logger vive em `server/logs/`.
 - **`server/schemas/`** - `z.strictObject`, `z.coerce` para números e `refine` para regras de
   formulário.
 - **`shared/`** - tipos e textos que precisam existir nos dois lados. Nunca importar código
@@ -220,16 +221,16 @@ Regras:
 
 ### 5.3 Tabelas novas (migrations do site)
 
-| Tabela                  | Finalidade                          | Campos principais                                                                                        |
-| ----------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `site_sessions`         | Sessão opaca do site                | `id`, `user_id`, `token_hash`, `created_at`, `last_seen_at`, `expires_at`, `ip`, `user_agent`            |
-| `site_sync_codes`       | Código de vínculo site → Discord    | `id`, `user_id`, `code_hash`, `expires_at`, `used_at`, `created_at`                                      |
-| `sheet_sync_queue`      | Outbox de alterações para o bot/IRT | `id`, `sheet_id`, `user_id`, `payload`, `status`, `attempts`, `last_error`, `created_at`, `processed_at` |
-| `socket_io_attachments` | Adapter do Socket.IO no Postgres    | `id`, `created_at`, `payload`                                                                            |
+| Tabela                  | Finalidade                       | Campos principais                                                                                        |
+| ----------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `site_sessions`         | Sessão opaca do site             | `id`, `user_id`, `token_hash`, `created_at`, `last_seen_at`, `expires_at`, `ip`, `user_agent`            |
+| `site_sync_codes`       | Código de vínculo site → Discord | `id`, `user_id`, `code_hash`, `status`, `claimed_discord_id`, `claimed_at`, `confirmed_at`, `expires_at` |
+| `site_account_merges`   | Auditoria do merge site + bot    | `id`, `from_user_id`, `to_user_id`, `discord_id`, `snapshot`, `created_at`                               |
+| `socket_io_attachments` | Adapter do Socket.IO no Postgres | `id`, `created_at`, `payload`                                                                            |
 
 Índices mínimos: `site_sessions(token_hash)`, `site_sessions(expires_at)`,
 `site_sessions(user_id)`, `site_sync_codes(code_hash)`,
-`sheet_sync_queue(status, created_at)`.
+`site_sync_codes(user_id, status)`, `site_account_merges(to_user_id)`.
 
 ### 5.4 Propriedade e permissões
 
@@ -262,24 +263,24 @@ posterior; a D2.1 já permite que novos usuários criem conta no site.
 
 ## 6. Entregas
 
-| Entrega | Tema                             | Versão          | Estado            |
-| ------- | -------------------------------- | --------------- | ----------------- |
-| D0      | Fundação técnica e deploy        | `0.1.0`         | Concluída         |
-| D1      | Landing, estatísticas e jurídico | `6.0.0`         | Em produção       |
-| D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev  |
-| D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev  |
-| D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev  |
-| D2.3    | Painel e acessos rápidos         | `6.2.0` (dev)   | Concluída no dev  |
-| D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev  |
-| D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev  |
-| D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev  |
-| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev  |
-| D3.4    | Notificações toast globais       | `6.2.0` (dev)   | Concluída no dev  |
-| D4      | Fichas públicas                  | `6.2.0` (dev)   | Concluída no dev  |
-| D4.1    | Modo leitura do dono             | `6.2.0` (dev)   | Concluída no dev  |
-| D4.2    | Limite de fichas e premium       | `6.2.0` (dev)   | Concluída no dev  |
-| D5      | Tempo real, sync e hardening     | —               | Depois da 6.2.0   |
-| D6      | Tutoriais                        | —               | Fora desta versão |
+| Entrega | Tema                             | Versão          | Estado             |
+| ------- | -------------------------------- | --------------- | ------------------ |
+| D0      | Fundação técnica e deploy        | `0.1.0`         | Concluída          |
+| D1      | Landing, estatísticas e jurídico | `6.0.0`         | Em produção        |
+| D2      | Login e sessão                   | `6.2.0` (dev)   | Concluída no dev   |
+| D2.1    | Cadastro simples                 | `6.2.0` (dev)   | Concluída no dev   |
+| D2.2    | Painel e conta                   | `6.2.0` (dev)   | Concluída no dev   |
+| D2.3    | Painel e acessos rápidos         | `6.2.0` (dev)   | Concluída no dev   |
+| D3      | Editor de fichas                 | `6.2.0` release | Concluída no dev   |
+| D3.1    | Editor multimodo e estrutura     | `6.2.0` (dev)   | Concluída no dev   |
+| D3.2    | Status, galeria e tabela         | `6.2.0` (dev)   | Concluída no dev   |
+| D3.3    | Mobile, ícones e navegação       | `6.2.0` (dev)   | Concluída no dev   |
+| D3.4    | Notificações toast globais       | `6.2.0` (dev)   | Concluída no dev   |
+| D4      | Fichas públicas                  | `6.2.0` (dev)   | Concluída no dev   |
+| D4.1    | Modo leitura do dono             | `6.2.0` (dev)   | Concluída no dev   |
+| D4.2    | Limite de fichas e premium       | `6.2.0` (dev)   | Concluída no dev   |
+| D5      | Tempo real, sync e hardening     | `6.2.0` (dev)   | Em desenvolvimento |
+| D6      | Tutoriais                        | —               | Fora desta versão  |
 
 A versão de desenvolvimento é `6.2.0`; a produção continua `6.0.0`. A D3, a D3.4, a D4 e a
 D4.2 estão concluídas no desenvolvimento e o release `6.2.0` fica pendente de migração no
@@ -490,7 +491,7 @@ Escopo:
 - conta em painel secundário ao lado das fichas no desktop, com `CONFIGURAÇÕES` e `SAIR`;
 - `/fichas` ganhou busca por nome e filtros `TODAS`, `PÚBLICAS`, `AO VIVO` e `LEGADAS`, com contagem e deep link por `?filtro=publicas|vivas|legadas`; cada ficha vira um card com código, nome, data, badges e ações;
 - `/configuracoes` alinha os painéis PERFIL/SENHA em altura, com as ações no rodapé e uma coluna abaixo de 900px;
-- `/ao-vivo` também abre a ficha vinculada por linha clicável;
+- `/ao-vivo` usa a mesma grade de cards de `/fichas`, com código, nome, selo AO VIVO, canal, mensagem, último uso e ação `ABRIR` para a ficha vinculada;
 - layout em duas colunas no desktop e uma no mobile; sem rolagem horizontal em 360 px.
 
 Resultado em 05/11/2026:
@@ -757,6 +758,12 @@ Revisão de URL em 04/11/2026:
 - o layout do editor é escolhido no próprio componente (painel para o dono, padrão para o público), sem depender do prefixo antigo;
 - a suíte fechou com 172 testes unitários e 66 E2E aprovados + 1 skip no build de produção.
 
+Revisão de preview em 06/11/2026:
+
+- a visão pública expõe Open Graph e Twitter para o link no Discord: título com o nome da ficha, descrição com o criador, primeira imagem http(s) da ficha ou a logo 256 como fallback, URL canônica e `twitter:card=summary`;
+- ficha com senha sem cookie continua sem os dados da ficha nos metadados;
+- 4 testes unitários novos do extrator de imagem e do criador, e 1 E2E anônimo do preview.
+
 ### D4.1 - Modo leitura do dono
 
 **Objetivo:** permitir que o dono veja a ficha sem o chrome do editor antes de abrir o compartilhamento público.
@@ -789,6 +796,7 @@ Resultado em 04/11/2026:
 Revisão em 04/11/2026:
 
 - atalhos de barra, lista, descrição e status ligados no modo leitura do dono, com salvamento automático (debounce de 700 ms) e flush ao sair da leitura;
+- no `textarea` de descrição/anotações, `Enter` e `Alt+Enter` inserem quebra de linha em qualquer modo do `KamiSheetView`; o status `SALVO AUTOMATICAMENTE.` some após 3s;
 - 1 E2E novo cobre barra, lista, descrição e status com persistência após recarregar; a suíte fechou com 172 unitários e 66 E2E aprovados + 1 skip.
 
 ### D4.2 - Limite de fichas e premium
@@ -826,24 +834,62 @@ Resultado em 05/11/2026:
 
 **Objetivo:** atualizar fichas em tempo real, sincronizar com o Discord e fechar a segurança.
 
+**Estado:** em desenvolvimento em 06/11/2026, dentro da `6.2.0`.
+
 Escopo:
 
 - Socket.IO na mesma porta, websocket-only, path `/socket.io`;
 - `@socket.io/postgres-adapter` com `socket_io_attachments`;
 - autenticação do socket pela mesma sessão opaca;
-- salas de usuário (`user-{id}`), de ficha (`sheet-{id}`) e de serviço (`service:sheets`, `service:users`), autenticadas por sessão ou token de serviço, com eventos em inglês (`sheet.updated`, `sheet.deleted`);
-- outbox `sheet_sync_queue` para atualizações de IRT;
-- consumo pelo bot com idempotência, retry e dead-letter;
-- sincronização site → bot por código (`site_sync_codes`);
-- edição de ficha IRT liberada somente depois do contrato de sync;
+- salas de usuário (`user-{id}`), de ficha (`sheet-{id}`), de ficha pública (`public-sheet-{id}`) e de serviço (`service:sheets`, `service:users`), autenticadas por sessão, cookie de ficha ou token de serviço, com eventos em inglês (`sheet.updated`, `sheet.deleted`, `sheet.unpublished`, `sheet.access_changed`);
+- `irt_sheets.last_synced_at` e reconciliação a cada 30s no bot ativo;
+- evento `sheet.updated` para latência e reconciliação como garantia contra eventos perdidos;
+- edição e exclusão de ficha IRT liberadas, com limpeza automática dos vínculos `irt_sheets`;
 - CSP, rate limits finais, revisão de logs, auditoria e teste de carga;
 - ensaio de failover e restore.
+
+Progresso em 06/11/2026:
+
+- Socket.IO no mesmo processo HTTP, websocket-only, com autenticação por cookie de sessão para usuários e token de serviço (`BOT_SYNC_TOKEN`) para o bot;
+- adapter `@socket.io/postgres-adapter` com a tabela `socket_io_attachments` e migration aplicada;
+- salas `user-{id}`, `sheet-{id}`, `service:sheets` e `service:users`; a assinatura de ficha valida a posse antes de entrar na sala;
+- eventos `sheet.created`, `sheet.updated` e `sheet.deleted` com envelope mínimo (`id`, `type`, `occurredAt`, `resourceId`, `userId`, `version`);
+- editor assina a ficha, atualiza sozinho quando não há alterações locais e mostra toast crítico com `RECARREGAR` quando há rascunho em conflito;
+- handshake de usuário valida a origem; o bot não acessa salas de usuário/ficha;
+- teste E2E cobre duas abas recebendo a mesma alteração sem recarregar; smoke manual confirmou o adapter entre duas instâncias do site;
+- a suíte fechou com 218 testes unitários e 76 E2E aprovados + 1 skip no build de produção;
+- ficha pública em tempo real: sala `public-sheet-{id}` separada, conexão anônima validada por origem e rate limit por IP, `is_public` e cookie de senha; o cookie carrega a impressão digital da senha atual, então trocá-la revoga acessos antigos; limite de 10 assinaturas públicas por conexão; eventos de atualização, despublicação e mudança de acesso;
+- E2E anônimo cobre ficha pública atualizando sem login e despublicação; o teste com senha valida a assinatura depois do cookie de acesso;
+- vínculo de conta: o site gera um código, o bot valida em `/vincular <código>` via endpoint interno autenticado por `BOT_SYNC_TOKEN`, e o site confirma o merge em `site_sync_codes`/`site_account_merges`;
+- o merge move fichas, IRT, bloqueios, logs, configurações e anúncios vistos da conta do bot para a conta do site; herda `is_premium`/`is_beta`/avatar e apaga a conta do bot com auditoria;
+- fichas com nomes repetidos bloqueiam o merge com a lista de nomes; conta do bot que também tem e-mail/senha vai para o suporte; o limite de 30 é apenas avisado e não apaga fichas;
+- o resumo mostra fichas do site, fichas do bot, ao vivo e o total antes da confirmação;
+- edição de ficha IRT liberada; o bot ativo recebe `sheet.updated`, atualiza as mensagens e usa `irt_sheets.last_synced_at` + reconciliação de 30s para recuperar eventos perdidos;
+- excluir ficha IRT remove os vínculos `irt_sheets` na mesma transação; a interface não mostra mais o modo somente leitura;
+- mensagem IRT apagada no Discord (`10008 Unknown Message`) incrementa `irt_sheets.sync_failures`; um envio bem-sucedido zera o contador e, após 5 falhas consecutivas, o bot remove o vínculo morto para não repetir o erro indefinidamente;
+- painel assina a sala `user-{id}` e atualiza resumo, contadores e fichas recentes a cada evento de ficha ou vínculo; ao recuperar foco/visibilidade, refaz a consulta para capturar mudanças feitas pelo bot (IRT) ou em outra aba;
+- a assinatura pública mantém o socket entre atualizações e, se o reconnect encontrar a ficha despublicada ou protegida, troca a tela para indisponível/senha em vez de continuar exibindo conteúdo antigo;
+- CSP ativa no build de produção: nonce por requisição nos scripts inline do Nuxt, `script-src 'self' 'nonce-...'`, `style-src 'unsafe-inline'` restrito aos estilos dinâmicos e E2E verificando zero violações nas páginas públicas;
+- eventos públicos são emitidos localmente antes do `socketsLeave` para não perder a entrega assíncrona do adapter Postgres; renomear ficha pública atualiza a URL com `history.replaceState`, sem remontar a página;
+- troca de senha revoga as outras sessões da conta e desconecta os sockets correspondentes; um sweep local a cada 60s revalida as sessões e derruba sockets expirados;
+- mutações de ficha têm rate limit de 300/min por usuário, além da cota de 30 fichas;
+- `/configuracoes` avisa que a exclusão de conta é manual pelo servidor de suporte no Discord até existir um fluxo próprio;
+- presença definida como chip permanente de tempo real em `/painel`, `/fichas` e na ficha pública: estados conectando/conectado/reconectando/offline, cores por estado, faixas listradas laterais e ação `RECARREGAR` quando offline; o estado é centralizado em `app/utils/realtime.ts` e o chip em `KamiRealtimeChip`;
+- topbar com `SUPORTE`, `ADICIONAR O KAMI`, `REPORTAR PROBLEMA` (apenas autenticado) e `SAIR` em vermelho; o reporte abre um modal, envia `POST /api/suporte/reportar` com webhook do Discord e menciona o owner via `OWNER_DISCORD_ID`, com limite de 3 reportes por 10 minutos.
+
+Pendente:
+
+- revisão final da D5/D4 e commit;
+- ensaio de failover/restore manual;
+- avaliar teste de carga em produção (dev e produção têm arquiteturas diferentes).
 
 Aceite:
 
 - duas abas veem a mesma alteração sem recarregar;
-- ficha IRT atualiza o Discord via fila, sem perda em retry;
+- ficha IRT atualiza o Discord via evento e reconciliação, sem perder a última edição;
+- visitante anônimo da ficha pública recebe a atualização sem reload; ficha privada não recebe e ficha com senha só assina depois do cookie;
 - sessão expirada derruba o socket;
+- o painel atualiza contadores e fichas recentes sem recarregar;
 - CSP não quebra a aplicação;
 - failover de uma VPS não perde sessão nem escrita.
 
@@ -885,11 +931,12 @@ O que evitar:
 3. **Faixa de estatísticas** - uma faixa editorial, não quatro cartões de dashboard:
    jogadores cadastrados, ativos nos últimos 30 dias, fichas criadas e interações
    (comandos + componentes). Timestamp discreto e estado de indisponibilidade.
-4. **O que dá para fazer** - três blocos: fichas personalizáveis (cinco tipos), rolagem de
-   dados (operações, vantagem/desvantagem, comparadores) e ficha ao vivo (IRT). Macros e
-   campanhas aparecem como roadmap, sem número.
+4. **O que dá para fazer** - três blocos: fichas personalizáveis (cabeçalho, descrição, texto,
+   número, imagem, lista, barra, status e tabela), rolagem de dados (operações,
+   vantagem/desvantagem, comparadores) e ficha ao vivo (IRT). Macros e campanhas aparecem
+   como roadmap, sem número.
 5. **Ficha de amostra** - o herói visual da página: ficha completa renderizada em HTML, com
-   etiqueta `AMOSTRA`, personagem fictício e os cinco tipos visíveis.
+   etiqueta `AMOSTRA`, personagem fictício e o modelo atual do editor visível.
 6. **Como funciona** - três passos: adicionar o Kami, ficha, mesa. Cada passo com uma frase
    curta.
 7. **Perguntas frequentes** - preço, instalação, sistemas, ficha ao vivo, privacidade e idioma.
@@ -915,11 +962,12 @@ mesmo fio com respiro acima e abaixo.
 
 ### 7.4 Ficha de amostra
 
-- Renderizada em HTML com a mesma gramática visual da leitura da D3/D4, não por screenshot.
+- Renderizada com o mesmo `KamiSheetView` da leitura pública e do editor, em modo documento e
+  sem o seletor de visualização.
 - Etiqueta `AMOSTRA` visível, personagem fictício e legenda de dados demonstrativos.
-- Mostra os cinco tipos: texto (identidade/anotações), número (atributos), imagem (retrato),
-  lista (inventário) e barra (recursos).
-- Cada bloco identifica o tipo de atributo em rótulo discreto.
+- Mostra cabeçalho, descrição, texto, número, imagem, lista, barra, status e tabela, com seções
+  e larguras definidas em `layout`.
+- O rodapé da amostra resume os tipos exibidos.
 - Em telas pequenas, os blocos empilham; a página não rola horizontalmente.
 - Nenhum dado de usuário real.
 
@@ -979,7 +1027,7 @@ mesmo fio com respiro acima e abaixo.
 | `KamiTopbar`        | Marca, navegação, suporte e CTA                       |
 | `KamiFooter`        | Links legais e suporte                                |
 | `KamiTablePreview`  | Prévia da mesa no hero                                |
-| `KamiSampleSheet`   | Ficha de amostra com os cinco tipos                   |
+| `KamiSampleSheet`   | Ficha de amostra com o modelo atual do editor         |
 | `KamiQuestions`     | FAQ com `details`/`summary` nativos                   |
 | `KamiLegalDocument` | Renderizador jurídico PT/EN                           |
 
@@ -1009,27 +1057,29 @@ mesmo fio com respiro acima e abaixo.
 - Logout: apaga a linha e limpa o cookie.
 - Sessão inválida em página autenticada: redireciona para `/entrar?redirecionar=...`.
 - `noindex` em `/entrar`, `/cadastrar`, `/painel`, `/fichas`, `/ao-vivo`, `/macros`, `/configuracoes` e `/sair`.
-- Troca de senha no painel exige a senha atual; nesta etapa de desenvolvimento ela não revoga as outras sessões. A revogação/força-login fica no hardening da D5.
-- Exclusão de conta: revoga sessões, registra solicitação e encaminha ao bot; o site não apaga
-  dados do Discord sozinho.
+- Troca de senha no painel exige a senha atual, revoga as outras sessões e desconecta os sockets correspondentes; a sessão atual continua. Um sweep local a cada 60s derruba sockets de sessões expiradas.
+- Exclusão de conta: por enquanto o usuário pede no servidor de suporte no Discord; `/configuracoes` exibe o aviso e o site não apaga dados do Discord sozinho. Um fluxo próprio fica para uma próxima etapa.
 
 ## 10. Editor de fichas (D3)
 
 - Estrutura JSON idêntica à do bot; o site não cria um formato paralelo.
-- Seções com nome, posição e tipo (`0` padrão, `1` descrição).
-- Cinco tipos:
+- Seções com nome, posição e tipo (`0` padrão, `1` descrição, `2` cabeçalho, `3` status,
+  `4` galeria e `5` tabela).
+- Tipos de atributo:
     - texto: string;
     - número: número;
     - imagem: URL validada;
     - lista: itens `{ name, quantity }`;
-    - barra: `{ actual, max, min, step }`.
+    - barra: `{ actual, max, min, step, ... }`;
+    - status: itens `{ id, name, color, blink, active, ... }`;
+    - tabela: `{ columns, rows }`.
 - Limites reais do backend do bot: nome de ficha até 32; seção entre 2 e 20; atributo até
   32; texto até 1024; número com até 32 caracteres; item de lista com nome até 32 e
   quantidade em dígitos; barra com inteiros de até 32 dígitos, `min <= max`, `actual`
   entre os dois, `step >= 1` e `step <= max`. O site não replica a regex de nome do bot;
   aceita qualquer caractere imprimível dentro dos mesmos limites de tamanho.
 - Ficha `legacy`: converte na leitura; o primeiro save grava `sections` e `legacy = false`.
-- Ficha com IRT: somente leitura até a D5; renomear/excluir bloqueado com explicação.
+- Ficha com IRT: editável e excluível; a exclusão remove os vínculos `irt_sheets` e o bot ativo sincroniza via `last_synced_at` + reconciliação.
 - Duplicar copia `attributes` e `legacy`, mas cria uma ficha privada, sem senha e sem
   vínculo IRT.
 - Concorrência: `last_use` como versão; `UPDATE ... WHERE id = $1 AND user_id = $2 AND
@@ -1069,11 +1119,11 @@ date_trunc('milliseconds', last_use) = $3`; se 0 linhas, `409` com opção de re
 
 ### 10.1 Modos de visualização
 
-- `documento` (padrão): página contínua com todas as seções e os cinco tipos de atributo, com
+- `documento` (padrão): página contínua com todas as seções e tipos de atributo, com
   índice de seções e âncoras para deep-link.
 - `secoes`: uma seção por vez, com navegação explícita entre elas.
 - O toggle é local: chave `kami:ficha:modo` no `localStorage`; não é salvo na ficha, não entra no
-  JSON, não é sincronizado e não gera `last_use` nem linha na `sheet_sync_queue`.
+  JSON, não é sincronizado e não gera `last_use` nem evento de sincronização.
 - O mesmo componente de leitura atende o preview do editor, a ficha pública (D4) e a ficha ao vivo
   (D5).
 - A edição continua por seções; o toggle muda apenas a visualização.
@@ -1104,11 +1154,17 @@ date_trunc('milliseconds', last_use) = $3`; se 0 linhas, `409` com opção de re
   instâncias sem Redis.
 - Salas: `user-{id}` e `sheet-{id}` para pessoas; `service:sheets` e `service:users` para bot e workers; eventos `sheet.updated` e `sheet.deleted`.
 - Eco do próprio cliente silenciado para não reaplicar estado.
-- IRT: o site grava a intenção em `sheet_sync_queue`; o bot consome, aplica no Discord e marca
-  processado. Idempotência por `id` da fila; retry com backoff; dead-letter após N tentativas.
-- Sincronização de conta: site gera código de 6 a 8 caracteres, usuário executa o comando no
-  Discord, bot grava o vínculo. Sem API bot → site.
-- Edição de ficha IRT só é liberada quando o contrato da fila estiver implementado e testado.
+- IRT: o site emite `sheet.updated` em `service:sheets`; o bot ativo atualiza as mensagens e
+  grava `irt_sheets.last_synced_at`. Uma reconciliação de 30s no bot ativo recupera edições
+  feitas enquanto ele estava offline, sem fila no site. Se o Discord responder
+  `10008 Unknown Message`, o bot incrementa `irt_sheets.sync_failures`; ao chegar a 5 falhas
+  consecutivas, remove o vínculo para não repetir o erro para sempre. Um envio bem-sucedido
+  zera o contador.
+- Sincronização de conta: o site gera um código de 8 caracteres, o usuário executa
+  `/vincular <código>` no Discord, o bot chama o endpoint interno autenticado por
+  `BOT_SYNC_TOKEN` e registra a reivindicação; o site confirma o merge e é a única
+  fonte de verdade da conta.
+- Edição de ficha IRT é liberada; excluir a ficha remove os vínculos `irt_sheets`.
 - Hardening: CSP, limites de payload, timeout de socket, logs sem PII, teste de carga e ensaio
   de failover.
 
@@ -1236,12 +1292,12 @@ Cloudflare (DNS + proxy + health check / failover)
 - [ ] CSRF/origem nas mutações.
 - [ ] Rate limit em login, senha de ficha e APIs sensíveis.
 - [ ] `noindex` em áreas privadas e fichas.
-- [ ] CSP na D5, com nonce e sem `unsafe-inline` desnecessário.
+- [x] CSP em produção com nonce por requisição; `style-src` mantém `'unsafe-inline'` apenas para os estilos dinâmicos do Vue.
 - [ ] Sem `v-html` de conteúdo do usuário.
 - [ ] Logs sem senha, token, cookie ou corpo sensível.
 - [ ] Dependências auditadas; lockfile commitado.
 - [ ] Backup/restore testado antes do lançamento.
-- [ ] Exclusão de conta e revogação de sessões documentadas.
+- [x] Troca de senha revoga as outras sessões e desconecta sockets; exclusão de conta documentada como pedido manual no suporte.
 
 ## 17. Testes e qualidade
 
@@ -1257,23 +1313,22 @@ Cloudflare (DNS + proxy + health check / failover)
 
 ## 18. Riscos e pendências
 
-| Risco/pendência                                           | Impacto                                         | Encaminhamento                                                                       |
-| --------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `COUNT` em `logs` a cada 60s                              | Carga no Postgres                               | Índice `(action_type, timestamp)` e cache de 60s                                     |
-| Contas do bot sem e-mail/senha                            | Login não cobre todos                           | Fluxo de primeiro acesso por código do Discord                                       |
-| Cadastro sem verificação de e-mail                        | E-mail não comprovado; reserva de e-mail alheio | Verificação em etapa futura; rate limit, suporte e revisão jurídica                  |
-| Revisão jurídica e dados do responsável                   | Bloqueia publicação do jurídico                 | Revisão humana antes do deploy da D1                                                 |
-| Migrations das tabelas novas                              | Bloqueia D2/D5                                  | Site é dono do schema; baseline e migrations em `prisma/`, com GRANT para `kami_app` |
-| Drift entre o schema do site e o espelho do bot           | Runtime do bot                                  | Congelar migrations do bot e coordenar mudanças em tabelas compartilhadas            |
-| Contrato da fila de IRT                                   | Bloqueia edição de ficha IRT                    | Definir payload/status com o bot antes da D5                                         |
-| IRT é escrita exclusiva do bot                            | Painel não linka/desvincula                     | D2.2 lê `irt_sheets`; D5 define sync, fila e gestão de vínculo                       |
-| Nomes duplicados históricos em `sheets`                   | Sem `UNIQUE` em `(user_id, sheet_name)`         | Site valida antes de criar/renomear; D5 pode avaliar deduplicação e índice único     |
-| Macros sem editor definido                                | Painel só lista                                 | Manter leitura e “em desenvolvimento” até definir a entrega de macros                |
-| Ownership de DNS/Cloudflare                               | Bloqueia failover                               | Confirmar conta, zonas e health check                                                |
-| Macros sem uso confirmado                                 | Comunicação                                     | Manter como roadmap, sem números                                                     |
-| Site antigo ainda no ar                                   | URLs e SEO                                      | Mapear redirects e desligar após validação                                           |
-| Segredo do `site.env` exposto                             | Segurança                                       | Rotacionar e nunca copiar para o repositório                                         |
-| `npm audit`: 14 avisos (2 low, 12 moderate) em Nuxt/Nitro | Build, não runtime                              | Aguardar correção do Nuxt/Nitro; não rebaixar o framework                            |
+| Risco/pendência                                           | Impacto                                         | Encaminhamento                                                                                                                 |
+| --------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `COUNT` em `logs` a cada 60s                              | Carga no Postgres                               | Índice `(action_type, timestamp)` e cache de 60s                                                                               |
+| Contas do bot sem e-mail/senha                            | Login não cobre todos                           | Fluxo de primeiro acesso por código do Discord                                                                                 |
+| Cadastro sem verificação de e-mail                        | E-mail não comprovado; reserva de e-mail alheio | Verificação em etapa futura; rate limit, suporte e revisão jurídica                                                            |
+| Revisão jurídica e dados do responsável                   | Bloqueia publicação do jurídico                 | Revisão humana antes do deploy da D1                                                                                           |
+| Migrations das tabelas novas                              | Bloqueia D2/D5                                  | Site é dono do schema; baseline e migrations em `prisma/`, com GRANT para `kami_app`                                           |
+| Drift entre o schema do site e o espelho do bot           | Runtime do bot                                  | Congelar migrations do bot e coordenar mudanças em tabelas compartilhadas                                                      |
+| Contrato de sincronização de IRT                          | Pode deixar mensagem do Discord desatualizada   | `irt_sheets.last_synced_at` + reconciliação de 30s no bot ativo; `sync_failures` remove vínculo morto após 5 `Unknown Message` |
+| Nomes duplicados históricos em `sheets`                   | Sem `UNIQUE` em `(user_id, sheet_name)`         | Site valida antes de criar/renomear; D5 pode avaliar deduplicação e índice único                                               |
+| Macros sem editor definido                                | Painel só lista                                 | Manter leitura e “em desenvolvimento” até definir a entrega de macros                                                          |
+| Ownership de DNS/Cloudflare                               | Bloqueia failover                               | Confirmar conta, zonas e health check                                                                                          |
+| Macros sem uso confirmado                                 | Comunicação                                     | Manter como roadmap, sem números                                                                                               |
+| Site antigo ainda no ar                                   | URLs e SEO                                      | Mapear redirects e desligar após validação                                                                                     |
+| Segredo do `site.env` exposto                             | Segurança                                       | Rotacionar e nunca copiar para o repositório                                                                                   |
+| `npm audit`: 14 avisos (2 low, 12 moderate) em Nuxt/Nitro | Build, não runtime                              | Aguardar correção do Nuxt/Nitro; não rebaixar o framework                                                                      |
 
 ## 19. Convenções de entrega
 
@@ -1293,7 +1348,7 @@ Cloudflare (DNS + proxy + health check / failover)
 3. Aplicar as migrations no `kami_prod` com a role de migration e validar o `db:diff`.
 4. Fechar a revisão jurídica do texto de conta e cookies.
 5. Promover a `6.2.0` (D2, D2.1, D2.2, D3 e D4) para `beta`/`main`, com smoke autenticado.
-6. Manter IRT e macros somente leitura até a D5 e a definição do editor de macros.
+6. Manter macros somente leitura até a definição do editor de macros; IRT já é editável e sincronizado pelo bot.
 
 ## 21. Registro de decisões
 
@@ -1333,3 +1388,5 @@ Cloudflare (DNS + proxy + health check / failover)
 | 05/11/2026 | Toast global com store singleton e host único em `app.vue`        | Feedback consistente, sem duplicar banners e sem histórico local       |
 | 05/11/2026 | Painel com acessos rápidos e últimas fichas clicáveis             | O resumo vira navegação e a lista recente deixa de ser só leitura      |
 | 05/11/2026 | Limite de 30 fichas por conta e premium ilimitado                 | Uso atual cabe com folga; exceções são ativadas manualmente no banco   |
+| 06/11/2026 | IRT sem fila no site; `last_synced_at` + reconciliação no bot     | Site não enfileira; bot ativo recupera eventos perdidos a cada 30s     |
+| 06/11/2026 | Excluir ficha IRT remove os vínculos `irt_sheets`                 | Evita o usuário caçar mensagens no Discord antes de apagar a ficha     |

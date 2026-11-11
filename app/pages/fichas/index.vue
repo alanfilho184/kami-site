@@ -6,6 +6,7 @@ import { formatDate } from '~~/shared/utils/formatting';
 import { errorStatus, serverErrorCode, serverErrorMessage } from '~~/shared/utils/http-error';
 import { sheetPath, sheetUrl } from '~~/shared/utils/sheet-url';
 import { notify } from '~/utils/notify';
+import { connectRealtime, type RealtimeSocket } from '~/utils/realtime';
 
 type SheetFilter = 'todas' | 'publicas' | 'vivas' | 'legadas';
 
@@ -106,10 +107,14 @@ export default defineNuxtComponent({
             editingId: null as number | null,
             renameValue: '',
             confirmDeleteId: null as number | null,
+            realtimeSocket: null as RealtimeSocket | null,
+            realtimeRefreshTimer: null as number | null,
             errorMessage: ''
         };
     },
     mounted() {
+        this.startRealtime();
+
         if (this.$route.query.nova === '1') {
             void this.$nextTick(() => {
                 const input = document.getElementById('nova-ficha');
@@ -118,6 +123,9 @@ export default defineNuxtComponent({
                 input?.focus();
             });
         }
+    },
+    beforeUnmount() {
+        this.stopRealtime();
     },
     computed: {
         filteredSheets(): SheetListItem[] {
@@ -208,6 +216,41 @@ export default defineNuxtComponent({
         },
         handleError(error: unknown, fallback: string): void {
             notify.error(serverErrorMessage(error) ?? fallback);
+        },
+        startRealtime(): void {
+            const socket = connectRealtime();
+
+            if (!socket) {
+                return;
+            }
+
+            this.realtimeSocket = socket;
+            socket.on('sheet.created', this.handleRealtimeSheetChange);
+            socket.on('sheet.updated', this.handleRealtimeSheetChange);
+            socket.on('sheet.deleted', this.handleRealtimeSheetChange);
+        },
+        stopRealtime(): void {
+            if (this.realtimeRefreshTimer !== null) {
+                window.clearTimeout(this.realtimeRefreshTimer);
+                this.realtimeRefreshTimer = null;
+            }
+
+            if (this.realtimeSocket) {
+                this.realtimeSocket.off('sheet.created', this.handleRealtimeSheetChange);
+                this.realtimeSocket.off('sheet.updated', this.handleRealtimeSheetChange);
+                this.realtimeSocket.off('sheet.deleted', this.handleRealtimeSheetChange);
+                this.realtimeSocket = null;
+            }
+        },
+        handleRealtimeSheetChange(): void {
+            if (this.realtimeRefreshTimer !== null) {
+                return;
+            }
+
+            this.realtimeRefreshTimer = window.setTimeout(() => {
+                this.realtimeRefreshTimer = null;
+                void Promise.all([this.refreshSheets(), this.refreshQuota()]);
+            }, 250);
         },
         adjustQuota(delta: number): void {
             if (!this.quota || this.quota.isPremium) {
@@ -433,11 +476,14 @@ export default defineNuxtComponent({
 <template>
     <div class="site-painel-pagina">
         <header class="site-painel-hero">
-            <p class="site-eyebrow">SUAS FICHAS</p>
+            <div class="site-painel-hero__selo">
+                <p class="site-eyebrow">SUAS FICHAS</p>
+                <KamiRealtimeChip />
+            </div>
             <h1 class="site-painel__titulo">FICHAS.</h1>
             <p class="site-prosa site-painel__descricao">
-                Crie, edite e organize suas fichas. As fichas vinculadas ao Discord aparecem ao vivo e ficam somente
-                leitura até a D5.
+                Crie, edite e organize suas fichas. As fichas vinculadas ao Discord aparecem ao vivo e podem ser
+                editadas normalmente.
             </p>
         </header>
 
@@ -598,12 +644,6 @@ export default defineNuxtComponent({
 
                         <div class="site-fichas__card-corpo">
                             <p class="site-fichas__card-meta">ATUALIZADA EM {{ formatUpdatedAt(sheet.updatedAt) }}</p>
-                            <p
-                                v-if="sheet.isLive"
-                                class="site-fichas__somente-leitura"
-                            >
-                                SOMENTE LEITURA · VINCULADA AO DISCORD
-                            </p>
 
                             <form
                                 v-if="editingId === sheet.id"
@@ -683,7 +723,6 @@ export default defineNuxtComponent({
                                 ABRIR
                             </KamiButton>
                             <KamiButton
-                                v-if="!sheet.isLive"
                                 size="sm"
                                 :disabled="busyId !== null"
                                 @click="startRename(sheet)"
@@ -698,7 +737,6 @@ export default defineNuxtComponent({
                                 DUPLICAR
                             </KamiButton>
                             <KamiButton
-                                v-if="!sheet.isLive"
                                 size="sm"
                                 variant="danger"
                                 :disabled="busyId !== null"

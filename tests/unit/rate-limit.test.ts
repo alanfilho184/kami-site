@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { createRateLimiter, hashRateLimitKey } from '../../server/utils/rate-limit';
+import {
+    createRateLimiter,
+    consumeReport,
+    consumeSheetWrite,
+    hashRateLimitKey,
+    REPORT_LIMIT,
+    SHEET_WRITE_LIMIT
+} from '../../server/utils/rate-limit';
 
 function createClock(initial = 1_000_000) {
     let instant = initial;
@@ -81,5 +88,27 @@ describe('rate limit', () => {
 
         expect(key).toMatch(/^[a-f0-9]{64}$/);
         expect(key).not.toContain('lyra');
+    });
+
+    it('limita as mutações de ficha por usuário', () => {
+        const userId = 987654;
+
+        for (let index = 0; index < SHEET_WRITE_LIMIT; index += 1) {
+            expect(consumeSheetWrite(userId).allowed).toBe(true);
+        }
+
+        expect(consumeSheetWrite(userId).allowed).toBe(false);
+        expect(consumeSheetWrite(userId + 1).allowed).toBe(true);
+    });
+
+    it('limita os reportes de problema por usuário', () => {
+        const userId = 123123;
+
+        for (let index = 0; index < REPORT_LIMIT; index += 1) {
+            expect(consumeReport(userId).allowed).toBe(true);
+        }
+
+        expect(consumeReport(userId).allowed).toBe(false);
+        expect(consumeReport(userId + 1).allowed).toBe(true);
     });
 });

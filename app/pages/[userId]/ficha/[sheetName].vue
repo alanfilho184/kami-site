@@ -18,11 +18,20 @@ import type {
     SheetStatusValue,
     SheetTableValue
 } from '~~/shared/types/sheet';
+import type { SheetRealtimeEvent } from '~~/shared/types/realtime';
 import { formatDateTime } from '~~/shared/utils/formatting';
 import { SHEET_DESCRIPTION_MAX_LENGTH, SHEET_TEXT_MAX_LENGTH } from '~~/shared/constants/sheet';
 import { errorStatus, serverErrorCode, serverErrorMessage } from '~~/shared/utils/http-error';
 import { sheetPath } from '~~/shared/utils/sheet-url';
 import { notify } from '~/utils/notify';
+import {
+    connectRealtime,
+    subscribePublicSheet,
+    subscribeSheet,
+    unsubscribePublicSheet,
+    unsubscribeSheet,
+    type RealtimeSocket
+} from '~/utils/realtime';
 import {
     clampAttributeRows,
     clampAttributeSpan,
@@ -767,6 +776,7 @@ export default defineNuxtComponent({
             readingSaveTimer: null as number | null,
             readingSaveQueued: false,
             readingSaveStatus: '',
+            readingStatusTimer: null as number | null,
             readingDirty: false,
             sharingPublic: false,
             sharingPassword: '',
@@ -783,6 +793,12 @@ export default defineNuxtComponent({
             isSaving: false,
             isReloading: false,
             isDeleting: false,
+            realtimeSocket: null as RealtimeSocket | null,
+            realtimeConnected: false,
+            realtimeSubscribed: false,
+            publicRealtimeSocket: null as RealtimeSocket | null,
+            publicRealtimeSubscribed: false,
+            publicTerminalEventId: '',
             showDeleteConfirm: false,
             conflict: false,
             liveBlocked: false,
@@ -979,6 +995,16 @@ export default defineNuxtComponent({
         }
     },
     watch: {
+        'sheet.id'(next: number | undefined, previous: number | undefined): void {
+            if (previous && previous !== next) {
+                unsubscribeSheet(previous);
+            }
+
+            if (next && next !== previous) {
+                this.realtimeSubscribed = false;
+                void this.subscribeRealtimeSheet(next);
+            }
+        },
         activeDialog(next: EditorDialog | null, previous: EditorDialog | null): void {
             if (next === previous) {
                 return;
@@ -1013,11 +1039,19 @@ export default defineNuxtComponent({
     },
     mounted() {
         this.updateViewport();
+        this.startRealtime();
+
+        if (this.publicSheet) {
+            this.startPublicRealtime();
+        }
+
         window.addEventListener('beforeunload', this.handleBeforeUnload);
         window.addEventListener('keydown', this.handleKeydown);
         window.addEventListener('resize', this.updateViewport);
     },
     beforeUnmount() {
+        this.stopRealtime();
+        this.stopPublicRealtime();
         this.cancelReadingSave();
         window.removeEventListener('beforeunload', this.handleBeforeUnload);
         window.removeEventListener('keydown', this.handleKeydown);
@@ -1050,6 +1084,264 @@ export default defineNuxtComponent({
         },
         handleError(error: unknown, fallback: string): void {
             notify.critical(serverErrorMessage(error) ?? fallback);
+        },
+        startRealtime(): void {
+            if (!this.sheet) {
+                return;
+            }
+
+            const socket = connectRealtime();
+
+            if (!socket) {
+                return;
+            }
+
+            this.realtimeSocket = socket;
+            this.realtimeConnected = socket.connected;
+            socket.on('connect', this.handleRealtimeConnect);
+            socket.on('disconnect', this.handleRealtimeDisconnect);
+            socket.on('sheet.updated', this.handleRealtimeSheetUpdated);
+            socket.on('sheet.deleted', this.handleRealtimeSheetDeleted);
+
+            if (socket.connected) {
+                void this.subscribeRealtimeSheet(this.sheet.id);
+            }
+        },
+        stopRealtime(): void {
+            const socket = this.realtimeSocket;
+            const sheetId = this.sheet?.id;
+
+            if (socket) {
+                socket.off('connect', this.handleRealtimeConnect);
+                socket.off('disconnect', this.handleRealtimeDisconnect);
+                socket.off('sheet.updated', this.handleRealtimeSheetUpdated);
+                socket.off('sheet.deleted', this.handleRealtimeSheetDeleted);
+            }
+
+            if (sheetId) {
+                unsubscribeSheet(sheetId);
+            }
+
+            this.realtimeSocket = null;
+            this.realtimeConnected = false;
+            this.realtimeSubscribed = false;
+        },
+        handleRealtimeConnect(): void {
+            this.realtimeConnected = true;
+
+            if (this.sheet) {
+                void this.subscribeRealtimeSheet(this.sheet.id);
+            }
+        },
+        handleRealtimeDisconnect(): void {
+            this.realtimeConnected = false;
+            this.realtimeSubscribed = false;
+        },
+        async subscribeRealtimeSheet(sheetId: number): Promise<void> {
+            const subscribed = await subscribeSheet(sheetId);
+
+            if (this.sheet?.id === sheetId) {
+                this.realtimeSubscribed = subscribed;
+            }
+        },
+        handleRealtimeSheetUpdated(event: SheetRealtimeEvent): void {
+            if (!this.sheet || event.resourceId !== this.sheet.id || event.version === this.sheet.version) {
+                return;
+            }
+
+            if (this.isSaving || this.sharingSaving || this.isDeleting || this.isReloading) {
+                return;
+            }
+
+            if (!this.hasChanges) {
+                void this.reloadSheet(true);
+                return;
+            }
+
+            notify.critical('A ficha foi alterada em outra janela. Recarregue para ver a versão mais recente.', {
+                dedupeKey: 'sheet-remote-update',
+                action: {
+                    label: 'RECARREGAR',
+                    onClick: () => {
+                        void this.reloadSheet();
+                    }
+                }
+            });
+        },
+        handleRealtimeSheetDeleted(event: SheetRealtimeEvent): void {
+            if (!this.sheet || event.resourceId !== this.sheet.id) {
+                return;
+            }
+
+            notify.critical('Esta ficha foi excluída em outra janela.', {
+                dedupeKey: 'sheet-remote-delete',
+                action: {
+                    label: 'VOLTAR PARA FICHAS',
+                    onClick: () => {
+                        void navigateTo('/fichas');
+                    }
+                }
+            });
+        },
+        startPublicRealtime(): void {
+            if (!this.publicSheet) {
+                return;
+            }
+
+            const socket = connectRealtime();
+
+            if (!socket) {
+                return;
+            }
+
+            this.publicRealtimeSocket = socket;
+            socket.on('connect', this.handlePublicRealtimeConnect);
+            socket.on('disconnect', this.handlePublicRealtimeDisconnect);
+            socket.on('sheet.updated', this.handlePublicRealtimeUpdated);
+            socket.on('sheet.deleted', this.handlePublicRealtimeRemoved);
+            socket.on('sheet.unpublished', this.handlePublicRealtimeRemoved);
+            socket.on('sheet.access_changed', this.handlePublicRealtimeAccessChanged);
+
+            if (socket.connected) {
+                void this.subscribePublicRealtime();
+            }
+        },
+        stopPublicRealtime(): void {
+            const socket = this.publicRealtimeSocket;
+            const sheetId = this.publicSheet?.id;
+
+            if (socket) {
+                socket.off('connect', this.handlePublicRealtimeConnect);
+                socket.off('disconnect', this.handlePublicRealtimeDisconnect);
+                socket.off('sheet.updated', this.handlePublicRealtimeUpdated);
+                socket.off('sheet.deleted', this.handlePublicRealtimeRemoved);
+                socket.off('sheet.unpublished', this.handlePublicRealtimeRemoved);
+                socket.off('sheet.access_changed', this.handlePublicRealtimeAccessChanged);
+            }
+
+            if (sheetId) {
+                unsubscribePublicSheet(sheetId);
+            }
+
+            this.publicRealtimeSocket = null;
+            this.publicRealtimeSubscribed = false;
+        },
+        handlePublicRealtimeConnect(): void {
+            if (this.publicSheet) {
+                void this.subscribePublicRealtime();
+            }
+        },
+        handlePublicRealtimeDisconnect(): void {
+            this.publicRealtimeSubscribed = false;
+        },
+        async subscribePublicRealtime(): Promise<void> {
+            if (!this.publicSheet || this.publicRealtimeSubscribed) {
+                return;
+            }
+
+            const sheetId = this.publicSheet.id;
+            const response = await subscribePublicSheet(sheetId);
+
+            if (this.publicSheet?.id !== sheetId) {
+                return;
+            }
+
+            this.publicRealtimeSubscribed = Boolean(response?.ok);
+
+            if (response?.code === 'sheet_not_found') {
+                this.stopPublicRealtime();
+                this.publicSheet = null;
+                this.publicRequiresPassword = false;
+                this.publicUnavailable = true;
+            } else if (response?.code === 'sheet_password_required') {
+                this.stopPublicRealtime();
+                this.publicSheet = null;
+                this.publicRequiresPassword = true;
+                this.publicUnavailable = false;
+            }
+        },
+        async refreshPublicSheet(name?: string): Promise<void> {
+            if (!this.publicSheet) {
+                return;
+            }
+
+            const sheetName = name || this.publicSheetName;
+            const query = this.publicPreferredId ? `?id=${this.publicPreferredId}` : '';
+
+            try {
+                const sheet = await $fetch<SheetDetail>(
+                    `/api/ficha/${this.publicUserId}/${encodeURIComponent(sheetName)}${query}`
+                );
+                const previousName = this.publicSheetName;
+
+                this.publicSheet = sheet;
+                this.publicSheetName = sheet.name;
+                this.publicRequiresPassword = false;
+                this.publicUnavailable = false;
+
+                if (sheet.name !== previousName) {
+                    const query = this.publicPreferredId ? `?id=${this.publicPreferredId}` : '';
+
+                    window.history.replaceState(
+                        window.history.state,
+                        '',
+                        `${sheetPath(sheet.userId, sheet.name)}${query}`
+                    );
+                }
+
+                await this.subscribePublicRealtime();
+            } catch (error) {
+                const status = errorStatus(error);
+
+                this.stopPublicRealtime();
+                this.publicSheet = null;
+                this.publicRequiresPassword = status === 401;
+                this.publicUnavailable = status !== 401;
+            }
+        },
+        handlePublicRealtimeUpdated(event: SheetRealtimeEvent): void {
+            if (!this.publicSheet || event.resourceId !== this.publicSheet.id) {
+                return;
+            }
+
+            void this.refreshPublicSheet(event.name);
+        },
+        handlePublicRealtimeRemoved(event: SheetRealtimeEvent): void {
+            if (!this.publicSheet || event.resourceId !== this.publicSheet.id) {
+                return;
+            }
+
+            if (this.isDuplicateTerminalEvent(event)) {
+                return;
+            }
+
+            this.stopPublicRealtime();
+            this.publicSheet = null;
+            this.publicRequiresPassword = false;
+            this.publicUnavailable = true;
+        },
+        handlePublicRealtimeAccessChanged(event: SheetRealtimeEvent): void {
+            if (!this.publicSheet || event.resourceId !== this.publicSheet.id) {
+                return;
+            }
+
+            if (this.isDuplicateTerminalEvent(event)) {
+                return;
+            }
+
+            this.publicRealtimeSubscribed = false;
+            void this.refreshPublicSheet(event.name);
+        },
+        isDuplicateTerminalEvent(event: SheetRealtimeEvent): boolean {
+            const key = `${event.type}:${event.id}`;
+
+            if (this.publicTerminalEventId === key) {
+                return true;
+            }
+
+            this.publicTerminalEventId = key;
+
+            return false;
         },
         asList(value: SheetAttribute['value']): SheetListValue {
             return value as SheetListValue;
@@ -1244,9 +1536,24 @@ export default defineNuxtComponent({
                 window.clearTimeout(this.readingSaveTimer);
                 this.readingSaveTimer = null;
             }
+
+            this.clearReadingStatusTimer();
+        },
+        clearReadingStatusTimer(): void {
+            if (this.readingStatusTimer !== null) {
+                window.clearTimeout(this.readingStatusTimer);
+                this.readingStatusTimer = null;
+            }
+        },
+        scheduleReadingStatusClear(): void {
+            this.clearReadingStatusTimer();
+            this.readingStatusTimer = window.setTimeout(() => {
+                this.readingStatusTimer = null;
+                this.readingSaveStatus = '';
+            }, 3000);
         },
         queueReadingSave(): void {
-            if (!this.isReading || this.isLive || this.liveBlocked || this.conflict) {
+            if (!this.isReading || this.liveBlocked || this.conflict) {
                 return;
             }
 
@@ -1265,7 +1572,7 @@ export default defineNuxtComponent({
 
             this.cancelReadingSave();
 
-            if (this.readingDirty && this.hasChanges && !this.isLive && !this.liveBlocked && !this.conflict) {
+            if (this.readingDirty && this.hasChanges && !this.liveBlocked && !this.conflict) {
                 void this.handleSave();
             }
 
@@ -2128,6 +2435,22 @@ export default defineNuxtComponent({
                 value: (event.target as HTMLTextAreaElement).value
             });
         },
+        insertDescriptionLineBreak(event: KeyboardEvent): void {
+            const textarea = event.target;
+
+            if (!(textarea instanceof HTMLTextAreaElement)) {
+                return;
+            }
+
+            const start = textarea.selectionStart ?? textarea.value.length;
+            const end = textarea.selectionEnd ?? start;
+            const value = `${textarea.value.slice(0, start)}\n${textarea.value.slice(end)}`;
+
+            textarea.value = value;
+            textarea.selectionStart = start + 1;
+            textarea.selectionEnd = start + 1;
+            this.handleUpdateDescription({ section: this.activeSectionIndex, value });
+        },
         handleUpdateDescription(payload: { section: number; value: string }): void {
             const section = this.sections[payload.section];
 
@@ -2647,7 +2970,7 @@ export default defineNuxtComponent({
             }
         },
         async handleSave(): Promise<void> {
-            if (!this.sheet || this.isLive || this.liveBlocked) {
+            if (!this.sheet || this.liveBlocked) {
                 return;
             }
 
@@ -2662,12 +2985,14 @@ export default defineNuxtComponent({
             if (!this.hasChanges) {
                 if (this.isReading) {
                     this.readingSaveStatus = '';
+                    this.clearReadingStatusTimer();
                 }
 
                 return;
             }
 
             if (this.isReading) {
+                this.clearReadingStatusTimer();
                 this.readingSaveStatus = 'SALVANDO...';
             }
 
@@ -2678,6 +3003,7 @@ export default defineNuxtComponent({
 
                 if (this.isReading) {
                     this.readingSaveStatus = '';
+                    this.clearReadingStatusTimer();
                 }
 
                 return;
@@ -2705,6 +3031,7 @@ export default defineNuxtComponent({
                     this.conflict = false;
                     this.liveBlocked = false;
                     this.readingSaveStatus = 'SALVO AUTOMATICAMENTE.';
+                    this.scheduleReadingStatusClear();
                     this.readingDirty = false;
                     this.syncSheetUrl(updated);
                 } else {
@@ -2741,6 +3068,7 @@ export default defineNuxtComponent({
 
                 if (this.isReading) {
                     this.readingSaveStatus = '';
+                    this.clearReadingStatusTimer();
                 }
             } finally {
                 this.isSaving = false;
@@ -2755,18 +3083,24 @@ export default defineNuxtComponent({
                 }
             }
         },
-        async reloadSheet(): Promise<void> {
+        async reloadSheet(silent = false): Promise<void> {
             if (!this.sheet || this.isReloading) {
                 return;
             }
 
+            const activeIndex = this.activeSectionIndex;
             this.isReloading = true;
 
             try {
                 const sheet = await $fetch<SheetDetail>(`/api/fichas/${this.sheet.id}`);
                 this.initializeFromSheet(sheet);
                 this.syncSheetUrl(sheet);
-                notify.success('FICHA RECARREGADA.');
+
+                if (silent) {
+                    this.selectSection(activeIndex);
+                } else {
+                    notify.success('FICHA RECARREGADA.');
+                }
             } catch (error) {
                 this.handleError(error, 'Não foi possível recarregar a ficha.');
             } finally {
@@ -2787,7 +3121,7 @@ export default defineNuxtComponent({
             notify.success('ALTERAÇÕES DESCARTADAS.');
         },
         async handleDelete(): Promise<void> {
-            if (!this.sheet || this.isLive || this.liveBlocked || this.isDeleting) {
+            if (!this.sheet || this.liveBlocked || this.isDeleting) {
                 return;
             }
 
@@ -2888,21 +3222,27 @@ export default defineNuxtComponent({
         v-if="publicMode"
         name="default"
     >
-        <KamiPublicSheetView
-            :sheet="publicSheet"
-            :requires-password="publicRequiresPassword"
-            :unavailable="publicUnavailable"
-            :user-id="publicUserId"
-            :sheet-name="publicSheetName"
-            :preferred-id="publicPreferredId"
-        />
+        <div :data-public-realtime="publicRealtimeSubscribed ? 'subscribed' : 'pending'">
+            <KamiPublicSheetView
+                :sheet="publicSheet"
+                :requires-password="publicRequiresPassword"
+                :unavailable="publicUnavailable"
+                :user-id="publicUserId"
+                :sheet-name="publicSheetName"
+                :preferred-id="publicPreferredId"
+            />
+        </div>
     </NuxtLayout>
 
     <NuxtLayout
         v-else
         name="painel"
     >
-        <div class="site-painel-pagina">
+        <div
+            class="site-painel-pagina"
+            :data-realtime-status="realtimeConnected ? 'connected' : 'offline'"
+            :data-realtime-sheet="realtimeSubscribed ? 'subscribed' : 'pending'"
+        >
             <KamiEmptyState
                 v-if="needsLogin"
                 title="SESSÃO EXPIRADA"
@@ -2985,7 +3325,7 @@ export default defineNuxtComponent({
                         :layout="previewLayout"
                         view-mode="documento"
                         :show-toggle="false"
-                        :adjustable="!sheet.isLive"
+                        :adjustable="true"
                         @adjust-bar="adjustBar"
                         @adjust-quantity="handleAdjustQuantity"
                         @add-list-item="handleAddListItem"
@@ -3017,7 +3357,6 @@ export default defineNuxtComponent({
                             <p class="site-eyebrow">EDITOR DE FICHA</p>
                             <h1 class="site-editor__titulo">
                                 <input
-                                    v-if="!sheet.isLive"
                                     id="ficha-nome"
                                     v-model="name"
                                     class="site-editor__titulo-input"
@@ -3026,7 +3365,6 @@ export default defineNuxtComponent({
                                     autocomplete="off"
                                     aria-label="Nome da ficha"
                                 />
-                                <span v-else>{{ sheet.name }}</span>
                             </h1>
                             <div class="site-editor__selos">
                                 <KamiChip
@@ -3051,10 +3389,7 @@ export default defineNuxtComponent({
                             </div>
                         </div>
 
-                        <div
-                            v-if="!sheet.isLive"
-                            class="site-editor__topo-acoes"
-                        >
+                        <div class="site-editor__topo-acoes">
                             <KamiButton
                                 size="sm"
                                 title="Visualizar ficha (Ctrl+Shift+V)"
@@ -3088,7 +3423,7 @@ export default defineNuxtComponent({
                     </div>
 
                     <p
-                        v-if="!sheet.isLive && hasChanges"
+                        v-if="hasChanges"
                         class="site-editor__estado"
                         role="status"
                     >
@@ -3096,23 +3431,7 @@ export default defineNuxtComponent({
                     </p>
                 </header>
 
-                <KamiPanel
-                    v-if="!isReading && sheet.isLive"
-                    label="SOMENTE LEITURA"
-                    code="IRT"
-                >
-                    <p class="site-prosa">
-                        Esta ficha está vinculada a uma mensagem do Discord. O vínculo é gerenciado pelo bot e a edição
-                        pelo site será liberada na D5, junto com a sincronização em tempo real.
-                    </p>
-                    <KamiSheetView
-                        :name="sheet.name"
-                        :attributes="sheet.attributes"
-                        :layout="sheet.layout"
-                    />
-                </KamiPanel>
-
-                <template v-else-if="!isReading">
+                <template v-if="!isReading">
                     <div class="site-editor__seletores">
                         <div class="site-editor__seletor-modo">
                             <label
@@ -3634,6 +3953,7 @@ export default defineNuxtComponent({
                                         :value="descriptionText"
                                         :maxlength="descriptionMaxLength"
                                         rows="8"
+                                        @keydown.alt.enter.prevent="insertDescriptionLineBreak"
                                         @input="updateDescription"
                                     ></textarea>
                                     <p class="site-editor__descricao-contador">
@@ -4629,10 +4949,8 @@ export default defineNuxtComponent({
                             <div class="site-editor__config-secao">
                                 <h3 class="site-editor__config-secao-titulo">EXCLUIR FICHA</h3>
                                 <p class="site-editor__config-texto">
-                                    Apagar a ficha é permanente e não pode ser desfeito.
-                                    <template v-if="liveBlocked">
-                                        Esta ficha está ao vivo no Discord e não pode ser excluída até a D5.
-                                    </template>
+                                    Apagar a ficha é permanente e não pode ser desfeito. Os vínculos IRT do Discord
+                                    serão removidos automaticamente.
                                 </p>
 
                                 <div
@@ -4666,7 +4984,7 @@ export default defineNuxtComponent({
                                     <KamiButton
                                         variant="danger"
                                         size="sm"
-                                        :disabled="isDeleting || liveBlocked"
+                                        :disabled="isDeleting"
                                         @click="showDeleteConfirm = true"
                                     >
                                         EXCLUIR FICHA
@@ -4864,7 +5182,7 @@ export default defineNuxtComponent({
                     </div>
 
                     <div
-                        v-if="!sheet.isLive && !isReading"
+                        v-if="!isReading"
                         class="site-editor__acoes-fixas"
                         role="group"
                         aria-label="Ações da ficha"

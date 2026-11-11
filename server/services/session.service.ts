@@ -3,7 +3,7 @@ import type { QueryResultRow } from 'pg';
 import SQL from 'sql-template-strings';
 import type { AuthUser } from '~~/shared/types/auth';
 import { query, queryOne, type Query } from '../utils/database';
-import { logger } from '../utils/logger';
+import { logger } from '../logs';
 
 export const SESSION_COOKIE_NAME = 'kami_sessao';
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -127,16 +127,49 @@ export function createSessionService(dependencies: Partial<SessionDependencies> 
         };
     }
 
+    async function isActive(tokenHash: string): Promise<boolean> {
+        const row = await findRow(SQL`
+            SELECT
+                s.id AS session_id,
+                s.last_seen_at,
+                s.expires_at,
+                u.id AS user_id,
+                u.username,
+                u.email,
+                u.is_premium
+            FROM site_sessions s
+            INNER JOIN users u ON u.id = s.user_id
+            WHERE s.token_hash = ${tokenHash}
+              AND s.expires_at > NOW()
+            LIMIT 1
+        `);
+
+        return row !== null;
+    }
+
     async function destroy(token: string): Promise<void> {
         const tokenHash = hashSessionToken(token);
         await execute(SQL`DELETE FROM site_sessions WHERE token_hash = ${tokenHash}`);
+    }
+
+    async function destroyForUser(userId: number, keepTokenHash: string | null = null): Promise<void> {
+        if (keepTokenHash) {
+            await execute(SQL`
+                DELETE FROM site_sessions
+                WHERE user_id = ${userId}
+                  AND token_hash <> ${keepTokenHash}
+            `);
+            return;
+        }
+
+        await execute(SQL`DELETE FROM site_sessions WHERE user_id = ${userId}`);
     }
 
     async function cleanup(): Promise<void> {
         await execute(SQL`DELETE FROM site_sessions WHERE expires_at < NOW()`);
     }
 
-    return { create, find, destroy, cleanup };
+    return { create, find, isActive, destroy, destroyForUser, cleanup };
 }
 
 export const sessionService = createSessionService();

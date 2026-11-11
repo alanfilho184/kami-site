@@ -4,9 +4,10 @@ import { sheetSharingSchema } from '../../../schemas/sheet';
 import { resolveSheetError } from '../../../services/sheet-errors';
 import { sheetService } from '../../../services/sheet.service';
 import { getAuthUser } from '../../../utils/auth-context';
-import { logger } from '../../../utils/logger';
+import { logger } from '../../../logs';
 import { readLimitedJsonBody, RequestBodyTooLargeError } from '../../../utils/request-body';
 import { assertSameOrigin } from '../../../utils/request-origin';
+import { enforceSheetWriteLimit } from '../../../utils/sheet-write-limit';
 
 export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | SheetErrorResponse> => {
     assertSameOrigin(event);
@@ -16,6 +17,13 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
     if (!user) {
         setResponseStatus(event, 401);
         return { message: 'Não autenticado.' };
+    }
+
+    const log = logger.forRequest(event);
+    const writeLimit = enforceSheetWriteLimit(event, user.id);
+
+    if (writeLimit) {
+        return writeLimit;
     }
 
     const sheetId = Number(getRouterParam(event, 'id'));
@@ -55,17 +63,35 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetDetail | 
             password: parsed.data.password
         });
 
-        logger.info('Compartilhamento da ficha atualizado', { user_id: user.id, sheet_id: sheet.id });
+        log.info('Compartilhamento da ficha atualizado', {
+            event: 'sheet.publication.updated',
+            user_id: user.id,
+            sheet_id: sheet.id,
+            sheet_name: sheet.name,
+            is_public: sheet.isPublic,
+            has_password: sheet.hasPassword,
+            password_changed: parsed.data.password !== undefined
+        });
         return sheet;
     } catch (error) {
         const failure = resolveSheetError(error);
 
         if (failure) {
+            log.warn('Compartilhamento da ficha não atualizado', {
+                event: 'sheet.publication.update_failed',
+                error_code: failure.response.code,
+                error_name: error instanceof Error ? error.name : undefined,
+                sheet_id: sheetId
+            });
             setResponseStatus(event, failure.statusCode);
             return failure.response;
         }
 
-        logger.error('Falha ao alterar compartilhamento da ficha', { error });
+        log.error('Falha ao alterar compartilhamento da ficha', {
+            event: 'sheet.publication.update_failed',
+            error,
+            sheet_id: sheetId
+        });
         setResponseStatus(event, 503);
         return { message: 'Não foi possível alterar o compartilhamento. Tente novamente em instantes.' };
     }

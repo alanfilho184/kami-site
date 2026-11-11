@@ -78,6 +78,10 @@ test('o painel autenticado mostra conta, resumo e navegação', async ({ page })
     await expect(page.locator('.site-painel-nav').getByRole('link', { name: 'CONFIGURAÇÕES' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'CONTA', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'SAIR DA CONTA' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'SAIR', exact: true })).toHaveClass(/kami-btn--danger/);
+    await expect(page.getByRole('link', { name: /ADICIONAR O KAMI/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /REPORTAR PROBLEMA/ })).toBeVisible();
+    await expect(page.locator('[data-realtime-status="connected"]')).toContainText('TEMPO REAL');
 });
 
 test('o painel oferece acessos rápidos e abre a ficha recente', async ({ page }) => {
@@ -179,6 +183,13 @@ test('as páginas internas do painel carregam com noindex', async ({ page }) => 
     await expect(page.locator('#config-senha-atual')).toBeVisible();
     await expect(page.locator('#config-senha-nova')).toBeVisible();
     await expect(page.locator('#config-senha-confirmacao')).toBeVisible();
+
+    const deleteAccountLink = page.getByRole('link', { name: /PEDIR EXCLUSÃO NO SUPORTE/ });
+
+    await expect(page.locator('#config-exclusao-conta')).toContainText('manualmente no servidor de suporte');
+    await expect(deleteAccountLink).toBeVisible();
+    await expect(deleteAccountLink).toHaveAttribute('href', /^https:\/\/discord\.gg\//);
+    await expect(deleteAccountLink).toHaveAttribute('target', '_blank');
 
     const panelHeights = await page
         .locator('.site-config__grade .kami-panel')

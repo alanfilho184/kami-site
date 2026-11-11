@@ -25,6 +25,7 @@ export default defineComponent({
 
         return {
             discordUrl: String(config.public.discordInvite ?? ''),
+            botInvite: String(config.public.botInvite ?? ''),
             panelLinks
         };
     },
@@ -72,10 +73,12 @@ export default defineComponent({
             :links="[]"
             support="SUPORTE"
             :discord-url="discordUrl"
+            :bot-invite="botInvite"
+            authenticated
             cta="SAIR"
             short-cta="SAIR"
             cta-to="/sair"
-            cta-variant="default"
+            cta-variant="danger"
         />
 
         <nav

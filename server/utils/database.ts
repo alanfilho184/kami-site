@@ -1,7 +1,7 @@
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import SQL from 'sql-template-strings';
 import { getConfig } from './config';
-import { logger } from './logger';
+import { logger } from '../logs';
 
 export interface Query {
     text: string;
@@ -40,7 +40,7 @@ function getPool(): Pool {
         });
 
         pool.on('error', error => {
-            logger.error('Erro em cliente ocioso do Postgres', { error });
+            logger.error('Erro em cliente ocioso do Postgres', { event: 'db.idle.error', error });
         });
 
         globalScope[poolKey] = pool;
@@ -52,6 +52,15 @@ function getPool(): Pool {
 export async function query<T extends QueryResultRow>(statement: Query): Promise<T[]> {
     const result = await getPool().query<T>(statement.text, statement.values);
     return result.rows;
+}
+
+/**
+ * Expõe o pool para integrações de infraestrutura que precisam de conexão
+ * própria, como o adapter do Socket.IO. A regra de negócio continua usando
+ * `query`/`queryOne`.
+ */
+export function getDatabasePool(): Pool {
+    return getPool();
 }
 
 export async function queryOne<T extends QueryResultRow>(statement: Query): Promise<T | null> {

@@ -4,8 +4,9 @@ import { deleteSheetSchema } from '../../schemas/sheet';
 import { resolveSheetError } from '../../services/sheet-errors';
 import { sheetService } from '../../services/sheet.service';
 import { getAuthUser } from '../../utils/auth-context';
-import { logger } from '../../utils/logger';
+import { logger } from '../../logs';
 import { assertSameOrigin } from '../../utils/request-origin';
+import { enforceSheetWriteLimit } from '../../utils/sheet-write-limit';
 
 export default defineEventHandler(async (event: H3Event): Promise<SheetErrorResponse | void> => {
     assertSameOrigin(event);
@@ -15,6 +16,13 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetErrorResp
     if (!user) {
         setResponseStatus(event, 401);
         return { message: 'Não autenticado.' };
+    }
+
+    const log = logger.forRequest(event);
+    const writeLimit = enforceSheetWriteLimit(event, user.id);
+
+    if (writeLimit) {
+        return writeLimit;
     }
 
     const sheetId = Number(getRouterParam(event, 'id'));
@@ -44,18 +52,24 @@ export default defineEventHandler(async (event: H3Event): Promise<SheetErrorResp
 
     try {
         await sheetService.deleteSheet(user.id, sheetId, parsed.data.version);
-        logger.info('Ficha excluída', { user_id: user.id, sheet_id: sheetId });
+        log.info('Ficha excluída', { event: 'sheet.deleted', user_id: user.id, sheet_id: sheetId });
         sendNoContent(event);
         return;
     } catch (error) {
         const failure = resolveSheetError(error);
 
         if (failure) {
+            log.warn('Ficha não excluída', {
+                event: 'sheet.delete_failed',
+                error_code: failure.response.code,
+                error_name: error instanceof Error ? error.name : undefined,
+                sheet_id: sheetId
+            });
             setResponseStatus(event, failure.statusCode);
             return failure.response;
         }
 
-        logger.error('Falha ao excluir ficha', { error });
+        log.error('Falha ao excluir ficha', { event: 'sheet.delete_failed', error, sheet_id: sheetId });
         setResponseStatus(event, 503);
         return { message: 'Não foi possível excluir a ficha. Tente novamente em instantes.' };
     }

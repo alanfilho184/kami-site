@@ -1,8 +1,10 @@
 <script lang="ts">
-import { defineNuxtComponent, useHead } from '#app';
+import { defineNuxtComponent, useHead, useRequestURL } from '#app';
 import { computed, type PropType } from 'vue';
 import type { SheetDetail } from '~~/shared/types/sheet';
 import { errorStatus } from '~~/shared/utils/http-error';
+import { firstSheetImage } from '~~/shared/utils/sheet-preview';
+import { sheetUrl } from '~~/shared/utils/sheet-url';
 
 export default defineNuxtComponent({
     name: 'KamiPublicSheetView',
@@ -33,15 +35,70 @@ export default defineNuxtComponent({
         }
     },
     setup(props) {
+        const requestUrl = useRequestURL();
+        const siteUrl = requestUrl.origin.replace(/\/+$/, '');
+        const fallbackImage = `${siteUrl}/marca/logo-256.webp`;
+
+        const sheetName = computed(() => props.sheet?.name ?? props.sheetName);
+        const creatorName = computed(() => props.sheet?.creatorName?.trim() || null);
+        const title = computed(() => (props.sheet ? `${sheetName.value} - Kami` : 'Ficha - Kami'));
+        const ogTitle = computed(() =>
+            props.sheet ? `Ficha "${sheetName.value}" - Kami` : 'Kami - Ficha de personagem'
+        );
+        const description = computed(() => {
+            if (!props.sheet) {
+                return 'Ficha de personagem compartilhada no Kami.';
+            }
+
+            return creatorName.value
+                ? `Criada por: ${creatorName.value}. Ficha de personagem compartilhada no Kami.`
+                : 'Ficha de personagem compartilhada no Kami.';
+        });
+        const image = computed(() => (props.sheet ? firstSheetImage(props.sheet.attributes) : null) ?? fallbackImage);
+        const imageAlt = computed(() =>
+            props.sheet ? `Imagem da ficha "${sheetName.value}"` : 'Kami - fichas de RPG personalizáveis'
+        );
+        const canonicalUrl = computed(() => {
+            const path = sheetUrl(props.sheet?.userId ?? props.userId, sheetName.value, props.preferredId ?? undefined);
+
+            return `${siteUrl}${path}`;
+        });
+        const meta = computed(() => {
+            const entries = [
+                { name: 'description', content: description.value },
+                { name: 'robots', content: 'noindex, nofollow' },
+                { property: 'og:type', content: 'website' },
+                { property: 'og:site_name', content: 'Kami' },
+                { property: 'og:title', content: ogTitle.value },
+                { property: 'og:description', content: description.value },
+                { property: 'og:url', content: canonicalUrl.value },
+                { property: 'og:image', content: image.value },
+                { property: 'og:image:alt', content: imageAlt.value },
+                { property: 'og:locale', content: 'pt_BR' }
+            ];
+
+            if (image.value === fallbackImage) {
+                entries.push(
+                    { property: 'og:image:type', content: 'image/webp' },
+                    { property: 'og:image:width', content: '256' },
+                    { property: 'og:image:height', content: '256' }
+                );
+            }
+
+            entries.push(
+                { name: 'twitter:card', content: 'summary' },
+                { name: 'twitter:title', content: ogTitle.value },
+                { name: 'twitter:description', content: description.value },
+                { name: 'twitter:image', content: image.value }
+            );
+
+            return entries;
+        });
+
         useHead({
-            title: computed(() => (props.sheet ? `${props.sheet.name} - Kami` : 'Ficha - Kami')),
-            meta: [
-                {
-                    name: 'description',
-                    content: 'Ficha de personagem compartilhada no Kami.'
-                },
-                { name: 'robots', content: 'noindex, nofollow' }
-            ]
+            title,
+            link: computed(() => [{ rel: 'canonical', href: canonicalUrl.value }]),
+            meta
         });
     },
     data() {
@@ -169,12 +226,15 @@ export default defineNuxtComponent({
                     <p class="site-eyebrow">FICHA PÚBLICA</p>
                     <h1 class="site-ficha-publica__titulo">{{ sheet.name }}</h1>
                 </div>
-                <KamiChip
-                    v-if="sheet.isLive"
-                    status="live"
-                >
-                    AO VIVO
-                </KamiChip>
+                <div class="site-ficha-publica__selos">
+                    <KamiRealtimeChip />
+                    <KamiChip
+                        v-if="sheet.isLive"
+                        status="live"
+                    >
+                        AO VIVO
+                    </KamiChip>
+                </div>
             </header>
 
             <KamiSheetView

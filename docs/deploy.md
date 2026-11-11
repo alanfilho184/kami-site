@@ -71,7 +71,9 @@ npm run db:migrate
 ```
 
 Rode a migration uma vez por release, antes de recarregar as duas VPS. Não
-coloque `prisma migrate` no boot da aplicação.
+coloque `prisma migrate` no boot da aplicação. Quando a release também atualizar
+o bot, aplique a migration antes de subir a instância ativa: o tratamento de
+`10008 Unknown Message` usa a coluna `irt_sheets.sync_failures`.
 
 Exemplo de preparação das roles (rodar como administrador do cluster, uma vez):
 
@@ -91,7 +93,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON
     irt_sheets,
     servers_config,
     macros,
-    site_sessions
+    site_sessions,
+    socket_io_attachments,
+    site_sync_codes,
+    site_account_merges
 TO kami_app;
 
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO kami_app;
@@ -128,15 +133,27 @@ Conteúdo mínimo:
 NUXT_PUBLIC_SITE_URL=https://kamiapp.com.br
 NUXT_PUBLIC_ENVIRONMENT=production
 NUXT_PUBLIC_DISCORD_INVITE=https://discord.gg/9rqCkFB
-NUXT_PUBLIC_BOT_INVITE=https://discord.com/api/oauth2/authorize?client_id=716053210179043409&permissions=52224&scope=bot%20applications.commands
+NUXT_PUBLIC_BOT_INVITE=https://discord.com/oauth2/authorize?client_id=716053210179043409
 
 DATABASE_URL=postgresql://kami_app:senha@127.0.0.1:5432/kami_prod
 SESSION_SECRET=32-bytes-aleatorios-exclusivos-do-site
+SYNC_CODE_SECRET=32-bytes-aleatorios-para-hmac-dos-codigos
+BOT_SYNC_TOKEN=32-bytes-aleatorios-compartilhados-com-o-bot
+DISCORD_LOG_WEBHOOK_URL=https://discord.com/api/webhooks/000000000000000000/troque-este-token
+OWNER_DISCORD_ID=000000000000000000
 LOG_LEVEL=info
+INSTANCE_NAME=kami-site-a
+LOGGER_URL=https://logger.kamiapp.com.br
+LOGGER_TOKEN=klp_token-de-ingestao-da-vps
+LOG_HTTP_PAYLOADS=true
+LOG_WS_PAYLOADS=true
+LOG_PAYLOAD_MAX_BYTES=16384
 DB_POOL_MAX=10
 DB_CONNECTION_TIMEOUT_MS=5000
 DB_STATEMENT_TIMEOUT_MS=5000
 ```
+
+No Developer Portal, habilite `Guild Install` e `User Install` em **Installation → Installation Contexts** e configure os defaults: `applications.commands` para usuário e `applications.commands` + `bot` (permissões `52224`) para servidor. O link curto de `NUXT_PUBLIC_BOT_INVITE` usa esses defaults e deixa o usuário escolher o contexto; uma URL com `scope`/`permissions` explícitos vale para um único `integration_type`.
 
 A URL de migration não fica no mesmo arquivo da aplicação. Use um arquivo
 separado, como `/etc/kami/migrations.env`, com permissão `600`, lido apenas no
@@ -146,6 +163,32 @@ continua usando `DATABASE_URL` com `kami_app`.
 Gere o `SESSION_SECRET` com `openssl rand -base64 48`. Ele fica reservado para
 cookies assinados da D4; a sessão opaca da D2 não é assinada por ele. Para revogar
 todas as sessões, limpe a tabela `site_sessions` em vez de trocar o segredo.
+
+O `BOT_SYNC_TOKEN` autentica o bot nas salas de serviço do Socket.IO e no
+endpoint interno `POST /api/internal/discord/claim`. Gere outro valor com
+`openssl rand -base64 48` e configure o mesmo token no bot. Sem ele, o site sobe
+normalmente, mas conexões de serviço e o vínculo de conta são recusados.
+
+O `LOGGER_URL` e o `LOGGER_TOKEN` habilitam a cópia assíncrona dos logs para o
+kami-logger. Crie um token `klp_...` por VPS no projeto `kami-site` (ambiente
+`prod`) e guarde o valor cru apenas no arquivo `600`; ele não volta a ser
+exibido. Sem as duas variáveis, o site continua subindo e grava só no stdout.
+O `INSTANCE_NAME` identifica a VPS no filtro de instância (`kami-site-a`,
+`kami-site-b`). A captura de bodies HTTP e dados de WebSocket é temporária:
+`LOG_HTTP_PAYLOADS`/`LOG_WS_PAYLOADS` podem ser desligados sem migration, e os
+logs antigos expiram pela retenção de 90 dias. Se o logger estiver fora, o site
+continua respondendo; a fila é limitada e os eventos mais antigos são
+descartados. Valide a ingestão em `/registros` do kami-logger.
+
+O `SYNC_CODE_SECRET` é usado no HMAC dos códigos de vínculo de conta. Quando
+ausente, o site usa o `SESSION_SECRET` como fallback; em produção, prefira um
+segredo separado para poder rotacionar códigos sem afetar sessões.
+
+O `DISCORD_LOG_WEBHOOK_URL` recebe os reportes de problema enviados pelo botão da
+topbar e deve apontar para um webhook de um canal privado; trate a URL como
+segredo. O `OWNER_DISCORD_ID` guarda o ID numérico do Discord do responsável,
+usado para mencioná-lo no reporte. Sem webhook válido, o endpoint responde
+`503`; sem owner ID válido, o reporte é enviado sem menção.
 
 Se o arquivo estiver em outro caminho, exporte `KAMI_ENV_FILE` antes de subir o
 PM2; o `ecosystem.config.cjs` repassa o valor ao Node via `--env-file-if-exists`.

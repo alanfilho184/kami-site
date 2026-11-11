@@ -406,11 +406,14 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
         const inventario = reading.locator('.site-sheetview__secao').filter({ hasText: 'Inventário' });
         const editarLista = inventario.getByRole('button', { name: 'EDITAR', exact: true });
 
+        await expect(inventario.locator('.site-sheetview__quantidade')).toHaveText('×2');
         await expect(editarLista).toBeVisible();
         await editarLista.click();
         await expect(inventario.getByRole('button', { name: 'CONCLUIR', exact: true })).toBeVisible();
 
         await inventario.getByRole('button', { name: 'Aumentar Corda' }).click();
+
+        await expect(inventario.locator('.site-sheetview__quantidade')).toHaveText('×3');
 
         await expect
             .poll(async () => {
@@ -430,7 +433,15 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
         const descricao = historia.locator('.site-sheetview__descricao-edicao');
 
         await expect(descricao).toBeVisible();
-        await descricao.fill('Descrição atualizada no modo leitura.');
+        await descricao.fill('Primeira linha.');
+        await descricao.press('Enter');
+        await descricao.pressSequentially('Segunda linha.');
+        await descricao.press('Alt+Enter');
+        await descricao.pressSequentially('Terceira linha.');
+
+        const descricaoEsperada = 'Primeira linha.\nSegunda linha.\nTerceira linha.';
+
+        await expect(descricao).toHaveValue(descricaoEsperada);
 
         await expect
             .poll(async () => {
@@ -438,7 +449,7 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
 
                 return detail.attributes.sections[2]?.attributes[0]?.value;
             })
-            .toBe('Descrição atualizada no modo leitura.');
+            .toBe(descricaoEsperada);
 
         const condicao = reading.locator('.site-sheetview__secao').filter({ hasText: 'Condição' });
         const ferido = condicao.getByRole('button', { name: 'Ferido' });
@@ -458,6 +469,7 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
             .toBe(true);
 
         await expect(reading.getByRole('status')).toHaveText('SALVO AUTOMATICAMENTE.');
+        await expect(reading.getByText('SALVO AUTOMATICAMENTE.')).toHaveCount(0, { timeout: 5000 });
         await expect(reading.getByText('ALTERAÇÕES NÃO SALVAS · VISUALIZANDO O RASCUNHO')).toHaveCount(0);
 
         await page.reload();
@@ -465,7 +477,7 @@ test('o modo leitura do dono edita barra, lista, descrição e status com salvam
 
         await expect(page.locator('.site-editor__leitura')).toBeVisible();
         await expect(page.locator('.site-editor__leitura .site-sheetview__descricao')).toHaveText(
-            'Descrição atualizada no modo leitura.'
+            'Primeira linha. Segunda linha. Terceira linha.'
         );
     } finally {
         const current = await page.request.get(`/api/fichas/${sheet.id}`);
@@ -1109,7 +1121,7 @@ test('a API de fichas guarda versão, renomeia e detecta conflito de escrita', a
     }
 });
 
-test('ficha ao vivo abre em modo somente leitura com mock de IRT', async ({ page }) => {
+test('ficha ao vivo abre no editor normal com o selo AO VIVO', async ({ page }) => {
     test.skip(!loginEmail || !loginPassword, 'Defina E2E_AUTH_EMAIL e E2E_AUTH_PASSWORD');
 
     const sheetName = uniqueSheetName();
@@ -1158,11 +1170,10 @@ test('ficha ao vivo abre em modo somente leitura com mock de IRT', async ({ page
         );
         await page.waitForURL(/\/\d+\/ficha\//);
 
-        await expect(page.getByText('SOMENTE LEITURA', { exact: true })).toBeVisible();
         await expect(page.locator('.site-editor__selos').getByText('AO VIVO', { exact: true })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'SALVAR' })).toHaveCount(0);
-        await expect(page.locator('.site-sheetview__tipo')).toHaveCount(0);
-        await expect(page.locator('.site-sheetview__secao-largura')).toHaveCount(0);
+        await expect(page.locator('#ficha-nome')).toBeVisible();
+        await expect(page.getByRole('button', { name: 'SALVAR' }).first()).toBeVisible();
+        await expect(page.getByText('SOMENTE LEITURA', { exact: true })).toHaveCount(0);
     } finally {
         await deleteSheetThroughApi(page, sheetId, authenticSheet.version);
     }

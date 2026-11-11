@@ -1,4 +1,5 @@
 import type { AuthUser } from '~~/shared/types/auth';
+import type { RequestLogContext } from '~~/server/logs/types';
 
 declare module 'h3' {
     interface H3EventContext {
@@ -6,6 +7,8 @@ declare module 'h3' {
             user: AuthUser;
             tokenHash: string;
         };
+        log?: RequestLogContext;
+        securityNonce?: string;
     }
 }
 

@@ -3,7 +3,7 @@ import type { AuthErrorResponse, AuthResponse, AuthUser } from '~~/shared/types/
 import { loginSchema } from '../../schemas/auth';
 import { authService } from '../../services/auth.service';
 import { sessionService } from '../../services/session.service';
-import { logger } from '../../utils/logger';
+import { logger } from '../../logs';
 import { consumeLoginAttempt, consumeLoginIp, resetLoginEmail } from '../../utils/rate-limit';
 import { getClientIp, getUserAgent } from '../../utils/request-metadata';
 import { assertSameOrigin } from '../../utils/request-origin';
@@ -21,6 +21,8 @@ function tooManyAttempts(event: H3Event, retryAfterSeconds: number): AuthErrorRe
 
 export default defineEventHandler(async (event: H3Event): Promise<AuthResponse | AuthErrorResponse> => {
     assertSameOrigin(event);
+
+    const log = logger.forRequest(event);
 
     let body: unknown = null;
 
@@ -56,13 +58,22 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
     try {
         user = await authService.authenticate(email, password);
     } catch (error) {
-        logger.error('Falha ao autenticar login', { error });
+        log.error('Falha ao autenticar login', {
+            event: 'auth.login.failed',
+            error_code: 'auth_unavailable',
+            auth_method: 'password',
+            error
+        });
         setResponseStatus(event, 503);
         return { message: unavailableMessage };
     }
 
     if (!user) {
-        logger.warn('Tentativa de login recusada');
+        log.warn('Tentativa de login recusada', {
+            event: 'auth.login.failed',
+            error_code: 'invalid_credentials',
+            auth_method: 'password'
+        });
         setResponseStatus(event, 401);
         return { message: invalidCredentialsMessage };
     }
@@ -81,7 +92,12 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
 
         setSessionCookie(event, session.token, session.expiresAt);
     } catch (error) {
-        logger.error('Falha ao criar sessão de login', { error });
+        log.error('Falha ao criar sessão de login', {
+            event: 'auth.session.create_failed',
+            error_code: 'session_unavailable',
+            auth_method: 'password',
+            error
+        });
         setResponseStatus(event, 503);
         return { message: unavailableMessage };
     }
@@ -89,11 +105,11 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
     try {
         await sessionService.cleanup();
     } catch (error) {
-        logger.warn('Falha ao limpar sessões expiradas', { error });
+        log.warn('Falha ao limpar sessões expiradas', { event: 'auth.sessions.cleanup_failed', error });
     }
 
     resetLoginEmail(email);
-    logger.info('Login realizado', { user_id: user.id });
+    log.info('Login realizado', { event: 'auth.login', user_id: user.id, auth_method: 'password' });
 
     return { user };
 });

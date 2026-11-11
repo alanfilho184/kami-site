@@ -1,5 +1,6 @@
 import { compare as compareBcrypt } from 'bcryptjs';
 import { timingSafeEqual } from 'node:crypto';
+import type { QueryResultRow } from 'pg';
 import SQL from 'sql-template-strings';
 import { queryOne } from '../utils/database';
 import type { SheetRow } from './sheet.service';
@@ -25,8 +26,10 @@ export async function findPublicSheet(
             s.sheet_layout,
             date_trunc('milliseconds', s.last_use) AS last_use,
             s.created_at,
+            u.username AS creator_name,
             EXISTS (SELECT 1 FROM irt_sheets i WHERE i.sheet_id = s.id) AS is_live
         FROM sheets s
+        LEFT JOIN users u ON u.id = s.user_id
         WHERE s.user_id = ${userId}
           AND s.sheet_name = ${sheetName}
           AND s.is_public = TRUE
@@ -38,6 +41,22 @@ export async function findPublicSheet(
 
 export function sheetRequiresPassword(row: SheetRow): boolean {
     return Boolean(row.sheet_password && row.sheet_password.length > 0);
+}
+
+export interface PublicSheetAccessRow extends QueryResultRow {
+    id: number;
+    sheet_password: string | null;
+    is_public: boolean;
+}
+
+export async function findPublicSheetAccessById(sheetId: number): Promise<PublicSheetAccessRow | null> {
+    return queryOne<PublicSheetAccessRow>(SQL`
+        SELECT id, sheet_password, is_public
+        FROM sheets
+        WHERE id = ${sheetId}
+          AND is_public = TRUE
+        LIMIT 1
+    `);
 }
 
 /**

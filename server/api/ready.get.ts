@@ -1,6 +1,6 @@
 import type { H3Event } from 'h3';
 import { checkDatabase } from '../utils/database';
-import { logger } from '../utils/logger';
+import { logger } from '../logs';
 
 export interface ReadinessResponse {
     status: 'ok' | 'unavailable';
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event: H3Event): Promise<ReadinessRespo
     setHeader(event, 'cache-control', 'no-store');
 
     if (!result.ok) {
-        logger.warn('Verificação de prontidão falhou', { error: result.error });
+        logger.warn('Verificação de prontidão falhou', { event: 'ready.check_failed', error: result.error });
         setResponseStatus(event, 503);
 
         return {

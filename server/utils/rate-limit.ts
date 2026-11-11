@@ -177,6 +177,18 @@ export function resetPasswordChange(userId: number): void {
     passwordChangeLimiter.reset(`user:${userId}`);
 }
 
+export const SHEET_WRITE_LIMIT = 300;
+export const SHEET_WRITE_WINDOW_MS = 60 * 1000;
+
+export const sheetWriteLimiter = createRateLimiter({
+    limit: SHEET_WRITE_LIMIT,
+    windowMs: SHEET_WRITE_WINDOW_MS
+});
+
+export function consumeSheetWrite(userId: number): RateLimitResult {
+    return sheetWriteLimiter.consume(`user:${userId}`);
+}
+
 export const SHEET_ACCESS_LIMIT = 10;
 export const SHEET_ACCESS_WINDOW_MS = 15 * 60 * 1000;
 
@@ -187,4 +199,28 @@ export const sheetAccessLimiter = createRateLimiter({
 
 export function consumeSheetAccess(ip: string, sheetId: number): RateLimitResult {
     return sheetAccessLimiter.consume(`sheet:${sheetId}:ip:${hashRateLimitKey(ip)}`);
+}
+
+export const DISCORD_CODE_LIMIT = 3;
+export const DISCORD_CODE_WINDOW_MS = 10 * 60 * 1000;
+
+export const discordCodeLimiter = createRateLimiter({
+    limit: DISCORD_CODE_LIMIT,
+    windowMs: DISCORD_CODE_WINDOW_MS
+});
+
+export function consumeDiscordCode(userId: number): RateLimitResult {
+    return discordCodeLimiter.consume(`user:${userId}`);
+}
+
+export const REPORT_LIMIT = 3;
+export const REPORT_WINDOW_MS = 10 * 60 * 1000;
+
+export const reportLimiter = createRateLimiter({
+    limit: REPORT_LIMIT,
+    windowMs: REPORT_WINDOW_MS
+});
+
+export function consumeReport(userId: number): RateLimitResult {
+    return reportLimiter.consume(`user:${userId}`);
 }

@@ -487,10 +487,29 @@ export default defineComponent({
             });
         },
         emitDescription(sectionIndex: number, event: Event): void {
+            this.emitDescriptionValue(sectionIndex, (event.target as HTMLTextAreaElement).value);
+        },
+        emitDescriptionValue(sectionIndex: number, value: string): void {
             this.$emit('update-description', {
                 section: sectionIndex,
-                value: (event.target as HTMLTextAreaElement).value
+                value
             });
+        },
+        insertDescriptionLineBreak(sectionIndex: number, event: KeyboardEvent): void {
+            const textarea = event.target;
+
+            if (!(textarea instanceof HTMLTextAreaElement)) {
+                return;
+            }
+
+            const start = textarea.selectionStart ?? textarea.value.length;
+            const end = textarea.selectionEnd ?? start;
+            const value = `${textarea.value.slice(0, start)}\n${textarea.value.slice(end)}`;
+
+            textarea.value = value;
+            textarea.selectionStart = start + 1;
+            textarea.selectionEnd = start + 1;
+            this.emitDescriptionValue(sectionIndex, value);
         },
         descriptionText(section: SheetSection): string {
             const attribute = section.attributes[0];
@@ -780,6 +799,13 @@ export default defineComponent({
         },
         barLabel(value: SheetBarValue): string {
             return `${value.actual} / ${value.max}`;
+        },
+        quantityLabel(quantity: string): string {
+            const value = String(quantity ?? '')
+                .replace(/^×/, '')
+                .trim();
+
+            return value ? `×${value}` : '';
         }
     }
 });
@@ -879,7 +905,7 @@ export default defineComponent({
                     :style="sectionStyle(section)"
                     :tabindex="editable ? 0 : undefined"
                     @click="handleSelect(sectionIndex(section))"
-                    @keydown.enter.prevent="handleSelect(sectionIndex(section))"
+                    @keydown.enter.self.prevent="handleSelect(sectionIndex(section))"
                 >
                     <header
                         v-if="section.type !== 2"
@@ -1125,6 +1151,7 @@ export default defineComponent({
                             rows="6"
                             aria-label="Texto da descrição"
                             @click.stop
+                            @keydown.alt.enter.prevent="insertDescriptionLineBreak(sectionIndex(section), $event)"
                             @input="emitDescription(sectionIndex(section), $event)"
                         ></textarea>
                         <p
@@ -1316,7 +1343,9 @@ export default defineComponent({
                                                 class="site-sheetview__lista-nome"
                                                 >{{ item.name }}</span
                                             >
-                                            <span class="site-sheetview__quantidade">{{ item.quantity }}</span>
+                                            <span class="site-sheetview__quantidade">{{
+                                                quantityLabel(item.quantity)
+                                            }}</span>
                                             <span
                                                 v-if="isEditingAttribute(sectionIndex(section), attributeIndex)"
                                                 class="site-sheetview__lista-acoes"

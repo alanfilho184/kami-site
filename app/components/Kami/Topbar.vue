@@ -35,6 +35,14 @@ export default defineComponent({
             type: String as PropType<TopbarCtaVariant>,
             default: 'primary'
         },
+        botInvite: {
+            type: String,
+            default: ''
+        },
+        authenticated: {
+            type: Boolean,
+            default: false
+        },
         discordUrl: {
             type: String,
             default: ''
@@ -85,6 +93,16 @@ export default defineComponent({
 
             <div class="kami-topbar__actions">
                 <KamiButton
+                    v-if="botInvite"
+                    class="site-topbar__adicionar"
+                    size="sm"
+                    :href="botInvite"
+                    external
+                >
+                    <span class="site-topbar__label-longo">ADICIONAR O KAMI</span>
+                    <span class="site-topbar__label-curto">ADICIONAR</span>
+                </KamiButton>
+                <KamiButton
                     v-if="discordUrl"
                     class="site-topbar__suporte"
                     size="sm"
@@ -93,6 +111,7 @@ export default defineComponent({
                 >
                     {{ support }}
                 </KamiButton>
+                <KamiReportProblem v-if="authenticated" />
                 <KamiButton
                     :variant="ctaVariant"
                     size="sm"

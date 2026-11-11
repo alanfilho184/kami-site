@@ -1980,6 +1980,108 @@ a:hover {
     }
 }
 
+/* --- Chip de conexão em tempo real --------------------------------------- */
+.kami-realtime-chip {
+    --kami-realtime-tone: var(--kami-accent-300);
+    --kami-realtime-tone-soft: color-mix(in srgb, var(--kami-accent-300) 10%, transparent);
+
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--kami-space-2);
+    min-height: 32px;
+    max-width: 100%;
+    padding: 0 16px;
+    overflow: hidden;
+    border: 1px solid var(--kami-line);
+    background:
+        linear-gradient(135deg, color-mix(in srgb, var(--kami-realtime-tone) 8%, transparent), transparent 55%),
+        color-mix(in srgb, var(--kami-surface-2) 96%, transparent);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.24);
+    color: var(--kami-realtime-tone);
+    font-family: var(--kami-font-mono);
+    font-size: var(--kami-text-2xs);
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.kami-realtime-chip::before,
+.kami-realtime-chip::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: repeating-linear-gradient(135deg, #000000 0 4px, var(--kami-realtime-tone) 4px 8px);
+    opacity: 0.9;
+}
+
+.kami-realtime-chip::before {
+    left: 0;
+    border-right: 1px solid rgba(0, 0, 0, 0.55);
+}
+
+.kami-realtime-chip::after {
+    right: 0;
+    border-left: 1px solid rgba(0, 0, 0, 0.55);
+}
+
+.kami-realtime-chip--connected {
+    --kami-realtime-tone: var(--kami-ok);
+    --kami-realtime-tone-soft: var(--kami-ok-soft);
+}
+
+.kami-realtime-chip--reconnecting {
+    --kami-realtime-tone: var(--kami-warn);
+    --kami-realtime-tone-soft: var(--kami-warn-soft);
+}
+
+.kami-realtime-chip--offline {
+    --kami-realtime-tone: var(--kami-danger);
+    --kami-realtime-tone-soft: var(--kami-danger-soft);
+}
+
+.kami-realtime-chip__icone {
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 20px;
+    flex: none;
+    border: 1px solid color-mix(in srgb, var(--kami-realtime-tone) 55%, var(--kami-line));
+    background: var(--kami-realtime-tone-soft);
+    color: var(--kami-realtime-tone);
+}
+
+.kami-realtime-chip__texto {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.kami-realtime-chip__acao {
+    margin-left: var(--kami-space-1);
+    padding: 3px 6px;
+    border: 1px solid color-mix(in srgb, var(--kami-realtime-tone) 55%, var(--kami-line));
+    background: var(--kami-realtime-tone-soft);
+    color: var(--kami-realtime-tone);
+    font-family: inherit;
+    font-size: 9px;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    cursor: pointer;
+}
+
+.kami-realtime-chip__acao:hover {
+    border-color: var(--kami-realtime-tone);
+    background: color-mix(in srgb, var(--kami-realtime-tone) 16%, transparent);
+}
+
+.kami-realtime-chip__acao:focus-visible {
+    outline: 2px solid var(--kami-realtime-tone);
+    outline-offset: 2px;
+}
+
 /* ==========================================================================
  * MOVIMENTO REDUZIDO
  * ==========================================================================

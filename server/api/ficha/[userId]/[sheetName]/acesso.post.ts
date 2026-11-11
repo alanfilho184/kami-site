@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3';
 import { z } from 'zod';
 import { findPublicSheet, sheetRequiresPassword, verifySheetPassword } from '../../../../services/public-sheet.service';
-import { logger } from '../../../../utils/logger';
+import { logger } from '../../../../logs';
 import { consumeSheetAccess } from '../../../../utils/rate-limit';
 import { readLimitedJsonBody, RequestBodyTooLargeError } from '../../../../utils/request-body';
 import { getClientIp } from '../../../../utils/request-metadata';
@@ -45,6 +45,7 @@ export default defineEventHandler(async (event: H3Event): Promise<void | AccessE
     setHeader(event, 'X-Robots-Tag', 'noindex, nofollow');
     setHeader(event, 'Cache-Control', 'private, no-store');
 
+    const log = logger.forRequest(event);
     const userId = Number(getRouterParam(event, 'userId'));
     const sheetName = readSheetName(event);
     const preferredId = readPreferredId(event);
@@ -78,11 +79,24 @@ export default defineEventHandler(async (event: H3Event): Promise<void | AccessE
         const row = await findPublicSheet(userId, sheetName, preferredId);
 
         if (!row) {
+            log.warn('Ficha pública não encontrada no acesso', {
+                event: 'sheet.public.access.denied',
+                error_code: 'sheet_not_found',
+                auth_method: 'anonymous',
+                sheet_owner_id: userId
+            });
             setResponseStatus(event, 404);
             return { message: 'Ficha não encontrada.', code: 'sheet_not_found' };
         }
 
         if (!sheetRequiresPassword(row)) {
+            log.info('Acesso a ficha pública liberado', {
+                event: 'sheet.public.access.granted',
+                auth_method: 'anonymous',
+                has_password: false,
+                sheet_owner_id: userId,
+                sheet_id: row.id
+            });
             setResponseStatus(event, 204);
             return;
         }
@@ -90,6 +104,14 @@ export default defineEventHandler(async (event: H3Event): Promise<void | AccessE
         const limit = consumeSheetAccess(getClientIp(event), row.id);
 
         if (!limit.allowed) {
+            log.warn('Acesso a ficha pública limitado', {
+                event: 'sheet.public.access.denied',
+                error_code: 'rate_limited',
+                auth_method: 'password',
+                has_password: true,
+                sheet_owner_id: userId,
+                sheet_id: row.id
+            });
             setHeader(event, 'Retry-After', limit.retryAfterSeconds);
             setResponseStatus(event, 429);
             return {
@@ -101,16 +123,33 @@ export default defineEventHandler(async (event: H3Event): Promise<void | AccessE
         const valid = await verifySheetPassword(row.sheet_password, parsed.data.password);
 
         if (!valid) {
-            logger.warn('Senha de ficha pública recusada', { sheet_id: row.id });
+            log.warn('Senha de ficha pública recusada', {
+                event: 'sheet.public.access.denied',
+                error_code: 'invalid_password',
+                auth_method: 'password',
+                has_password: true,
+                sheet_owner_id: userId,
+                sheet_id: row.id
+            });
             setResponseStatus(event, 403);
             return { message: 'Senha incorreta.', code: 'invalid_password' };
         }
 
-        setSheetAccessCookie(event, row.id);
-        logger.info('Acesso a ficha pública liberado', { sheet_id: row.id });
+        setSheetAccessCookie(event, row.id, row.sheet_password);
+        log.info('Acesso a ficha pública liberado', {
+            event: 'sheet.public.access.granted',
+            auth_method: 'password',
+            has_password: true,
+            sheet_owner_id: userId,
+            sheet_id: row.id
+        });
         setResponseStatus(event, 204);
     } catch (error) {
-        logger.error('Falha ao liberar acesso à ficha pública', { error, user_id: userId });
+        log.error('Falha ao liberar acesso à ficha pública', {
+            event: 'sheet.public.access.failed',
+            error,
+            sheet_owner_id: userId
+        });
         setResponseStatus(event, 503);
         return { message: 'Ficha indisponível. Tente novamente em instantes.' };
     }

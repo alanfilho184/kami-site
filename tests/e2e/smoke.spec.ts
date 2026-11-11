@@ -9,6 +9,20 @@ test('a landing responde e apresenta o produto', async ({ page }) => {
     await expect(
         page.getByRole('heading', { level: 2, name: 'Uma ficha que acompanha o ritmo da mesa.' })
     ).toBeVisible();
+    await expect(page.locator('.site-hero__descricao')).toContainText('no site');
+    await expect(page.locator('.site-cta').getByRole('link', { name: 'ENTRAR NO SITE' })).toHaveAttribute(
+        'href',
+        '/painel'
+    );
+    await expect(page.locator('.site-cta').getByRole('link', { name: 'ADICIONAR O BOT' })).toHaveAttribute(
+        'href',
+        /^https:\/\/discord\.com\//
+    );
+    await expect(page.locator('.site-topbar').getByRole('link', { name: /ADICIONAR O KAMI/ })).toHaveAttribute(
+        'href',
+        /^https:\/\/discord\.com\/(?:api\/)?oauth2\/authorize/
+    );
+    await expect(page.getByRole('button', { name: /REPORTAR PROBLEMA/ })).toHaveCount(0);
 });
 
 test('a home publica Open Graph com a origem real da requisição', async ({ page, baseURL }) => {
@@ -19,6 +33,43 @@ test('a home publica Open Graph com a origem real da requisição', async ({ pag
     await expect(page.locator('meta[property="og:image"]')).toHaveAttribute('content', `${origin}/og/kami-site.png`);
     await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', `${origin}/`);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${origin}/`);
+});
+
+test('a CSP não gera violações nas páginas públicas', async ({ page }) => {
+    await page.addInitScript(() => {
+        const target = window as unknown as {
+            __cspViolations: Array<{ directive: string; blockedURI: string }>;
+        };
+
+        target.__cspViolations = [];
+        document.addEventListener('securitypolicyviolation', event => {
+            target.__cspViolations.push({
+                directive: event.violatedDirective,
+                blockedURI: event.blockedURI
+            });
+        });
+    });
+
+    for (const path of ['/', '/entrar', '/termos']) {
+        await page.goto(path);
+        await page.waitForLoadState('networkidle');
+
+        const violations = await page.evaluate(
+            () =>
+                (window as unknown as { __cspViolations: Array<{ directive: string; blockedURI: string }> })
+                    .__cspViolations ?? []
+        );
+
+        expect(violations).toEqual([]);
+    }
+
+    const response = await page.request.get('/');
+    const csp = response.headers()['content-security-policy'] ?? '';
+
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self' 'nonce-");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
 });
 
 test('o roadmap apresenta macros e campanhas', async ({ page }) => {
@@ -179,25 +230,60 @@ test('a faixa de estatísticas mostra números ou indisponibilidade, nunca zero 
     }
 });
 
-test('a ficha de amostra exibe os cinco tipos de atributo', async ({ page }) => {
+test('a ficha de amostra reflete o modelo novo', async ({ page }) => {
     await page.goto('/');
 
     const sheet = page.locator('#ficha');
 
     await expect(sheet).toBeVisible();
+    await expect(sheet).not.toContainText('cinco tipos');
     await expect(sheet.locator('.site-ficha__tag')).toHaveText('AMOSTRA');
-    await expect(sheet.getByRole('heading', { level: 3, name: 'LYRA VOSS' })).toBeVisible();
+    await expect(sheet.getByRole('heading', { level: 2, name: 'Lyra Voss', exact: true })).toBeVisible();
 
-    const portrait = sheet.locator('.site-ficha__retrato img');
+    const header = sheet.locator('.site-sheetview__secao--cabecalho');
+
+    await expect(header.locator('.site-sheetview__cabecalho-subtitulo')).toHaveText('Cartógrafa de ruínas · Nível 4');
+    await expect(header.getByText('Porto Cinza', { exact: true })).toBeVisible();
+    await expect(header.getByText('Leitora de mapas que não deveriam existir', { exact: true })).toBeVisible();
+    await expect(header.getByText(/Lyra mapeia ruínas/)).toBeVisible();
+
+    const description = header.locator('.site-sheetview__atributo').filter({ hasText: 'Descrição' });
+
+    await expect(description).toHaveAttribute('style', /--attr-span: 12; --attr-rows: 1/);
+
+    const portrait = header.locator('.site-sheetview__cabecalho-imagem img');
 
     await expect(portrait).toHaveAttribute('src', '/placeholders/placeholder.webp');
-    await expect(portrait).toHaveAttribute('alt', /Símbolo do Kami/);
-    await expect(sheet.locator('.site-ficha__tipo')).toHaveText('DESCRIÇÃO');
-    await expect(sheet.locator('.site-ficha__descricao')).toContainText('Lyra mapeia ruínas');
+    await expect(portrait).toHaveAttribute('alt', 'Lyra Voss');
 
-    for (const type of ['TEXTO', 'NÚMERO', 'IMAGEM', 'LISTA', 'BARRA']) {
-        await expect(sheet.getByText(type, { exact: true }).first()).toBeVisible();
+    for (const name of ['AGILIDADE', 'PRECISÃO', 'VONTADE', 'PRESENÇA']) {
+        await expect(sheet.getByText(name, { exact: true })).toBeVisible();
     }
+
+    await expect(sheet.locator('.site-sheetview__barra')).toHaveCount(2);
+    await expect(sheet.getByText('12 / 16', { exact: true })).toBeVisible();
+    await expect(sheet.getByText('6 / 8', { exact: true })).toBeVisible();
+
+    await expect(sheet.locator('.site-sheetview__status-chip')).toHaveCount(3);
+    await expect(sheet.locator('.site-sheetview__status-chip--ativo')).toHaveCount(2);
+    await expect(sheet.getByText('Exausto', { exact: true })).toBeVisible();
+
+    await expect(sheet.locator('.site-sheetview__lista-item')).toHaveCount(4);
+    await expect(sheet.locator('.site-sheetview__quantidade')).toHaveText(['×1', '×2', '×4', '×1']);
+    await expect(sheet.getByText('Corda de seda', { exact: true })).toBeVisible();
+
+    const table = sheet.locator('.site-sheetview__tabela');
+
+    await expect(table.locator('th')).toHaveText(['PERÍCIA', 'BÔNUS']);
+    await expect(table.locator('tbody tr')).toHaveCount(4);
+    await expect(table.getByText('Investigação', { exact: true })).toBeVisible();
+
+    const notes = sheet.locator('.site-sheetview__secao--descricao');
+
+    await expect(notes.locator('.site-sheetview__secao-nome')).toHaveText('Anotações');
+    await expect(notes.locator('.site-sheetview__descricao')).toContainText('A porta só abre com a marcação certa.');
+
+    await expect(sheet.locator('.site-ficha__rodape')).toContainText('STATUS · TABELA');
 });
 
 test('as páginas jurídicas em PT-BR e EN-US respondem', async ({ page }) => {

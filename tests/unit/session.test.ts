@@ -124,6 +124,33 @@ describe('serviço de sessão', () => {
         expect(statement.values).toContain(hashSessionToken(token));
     });
 
+    it('confere se um hash de sessão ainda está ativo', async () => {
+        const active = createService(createRow());
+        const missing = createService(null);
+
+        await expect(active.service.isActive(hashSessionToken(token))).resolves.toBe(true);
+        await expect(missing.service.isActive(hashSessionToken(token))).resolves.toBe(false);
+
+        const statement = active.findRow.mock.calls[0]?.[0] as Query;
+
+        expect(statement.text).toContain('expires_at > NOW()');
+        expect(statement.values).toContain(hashSessionToken(token));
+    });
+
+    it('revoga as outras sessões da conta mantendo a atual', async () => {
+        const { service, execute } = createService();
+        const currentHash = hashSessionToken(token);
+
+        await service.destroyForUser(42, currentHash);
+
+        const statement = execute.mock.calls[0]?.[0] as Query;
+
+        expect(statement.text).toContain('DELETE FROM site_sessions');
+        expect(statement.text).toContain('token_hash <>');
+        expect(statement.values).toContain(42);
+        expect(statement.values).toContain(currentHash);
+    });
+
     it('limpa as sessões expiradas', async () => {
         const { service, execute } = createService();
 
