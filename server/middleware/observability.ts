@@ -32,6 +32,8 @@ function generateRequestId(event: H3Event): string {
  * logs de domínio e registra uma linha JSON ao final, com método, rota,
  * status, duração e os bodies temporários de depuração. O encerramento é feito
  * no evento `finish` para capturar também erros lançados por handlers.
+ * Probes automáticas (`401` de `/api/auth/session`, `200` de `/api/health`)
+ * ficam só no stdout em `debug`, fora do logger remoto.
  */
 export default defineEventHandler(async (event: H3Event) => {
     const path = event.path.split('?')[0] ?? '/';
@@ -69,6 +71,10 @@ export default defineEventHandler(async (event: H3Event) => {
         const userId = event.context.log?.user_id ?? event.context.auth?.user?.id ?? null;
         const responseBody = responseCapture?.finish() ?? null;
         const isSessionProbe = path === '/api/auth/session' && status === 401;
+        // Probes do HAProxy: o 200 saudável fica só no stdout (debug), fora do
+        // logger remoto. Outro status continua indo ao remoto como incidente.
+        const isHealthProbe = path === '/api/health' && status === 200;
+        const localOnly = isSessionProbe || isHealthProbe;
 
         logger.logHttp({
             method: event.method,
@@ -78,9 +84,9 @@ export default defineEventHandler(async (event: H3Event) => {
             request_id: requestId,
             ip: event.context.log?.ip ?? getClientIp(event),
             user_id: userId,
-            level: isSessionProbe ? 'debug' : undefined,
+            level: localOnly ? 'debug' : undefined,
             message: isSessionProbe ? 'Sessão ausente na verificação de estado' : undefined,
-            remote: !isSessionProbe,
+            remote: !localOnly,
             request_body: requestBody?.value,
             request_body_bytes: requestBody?.bytes,
             request_body_truncated: requestBody?.truncated,
