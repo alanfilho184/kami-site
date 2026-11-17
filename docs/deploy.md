@@ -119,13 +119,24 @@ Regras:
 
 ## 4. Segredos
 
-O arquivo de produção fica em `/etc/kami/kami-site.env`, com dono do usuário de
-deploy e permissão `600`. Ele não vai para o Git.
+O PM2 carrega o ambiente nesta ordem: `KAMI_ENV_FILE`, quando definido; o `.env`
+na raiz do repositório; e, por último, `/etc/kami/kami-site.env`. Só o primeiro
+arquivo encontrado é carregado. Um `KAMI_ENV_FILE` que não existe interrompe o
+`pm2 start`/`pm2 reload` em vez de cair no `.env` por engano.
+
+Em produção, o arquivo recomendado fica fora do repositório, em
+`/etc/kami/kami-site.env`, com dono do usuário de deploy e permissão `600`. Ele
+não vai para o Git e sobrevive a `git clean` ou a um deploy que recria o
+diretório.
 
 ```bash
 sudo install -m 600 -o kami -g kami /dev/null /etc/kami/kami-site.env
 sudo -u kami nano /etc/kami/kami-site.env
 ```
+
+O arquivo deve ser UTF-8 sem BOM: o carregador do Node não remove a marcação
+no início do arquivo e a primeira variável do arquivo é ignorada. No
+PowerShell 7, grave com `utf8NoBOM`.
 
 Conteúdo mínimo:
 
@@ -135,6 +146,8 @@ NUXT_PUBLIC_ENVIRONMENT=production
 NUXT_PUBLIC_DISCORD_INVITE=https://discord.gg/9rqCkFB
 NUXT_PUBLIC_BOT_INVITE=https://discord.com/oauth2/authorize?client_id=716053210179043409
 
+PORT=3000
+HOST=127.0.0.1
 DATABASE_URL=postgresql://kami_app:senha@127.0.0.1:5432/kami_prod
 SESSION_SECRET=32-bytes-aleatorios-exclusivos-do-site
 SYNC_CODE_SECRET=32-bytes-aleatorios-para-hmac-dos-codigos
@@ -153,6 +166,23 @@ DB_CONNECTION_TIMEOUT_MS=5000
 DB_STATEMENT_TIMEOUT_MS=5000
 ```
 
+Não deixe o `.env` de desenvolvimento em `/srv/kami-site`: ele tem precedência
+sobre `/etc/kami/kami-site.env` e o formato passa na validação do boot, então o
+processo subiria com o banco e o segredo errados, sem aviso. Se preferir manter o
+arquivo dentro do repositório, confira `chmod 600`, dono `kami` e os valores de
+produção. `PORT` e `HOST` vêm do próprio arquivo, carregado pelo Node via
+`--env-file-if-exists` antes de a aplicação subir. O `ecosystem.config.cjs` não
+define defaults para eles: se definisse `3000`/`127.0.0.1` no bloco `env`, o PM2
+injetaria esses valores primeiro e o arquivo nunca prevaleceria (o Node não
+sobrescreve variável já existente).
+
+Para mudar a porta ou o bind, edite o arquivo:
+
+```dotenv
+PORT=3000
+HOST=127.0.0.1
+```
+
 No Developer Portal, habilite `Guild Install` e `User Install` em **Installation → Installation Contexts** e configure os defaults: `applications.commands` para usuário e `applications.commands` + `bot` (permissões `52224`) para servidor. O link curto de `NUXT_PUBLIC_BOT_INVITE` usa esses defaults e deixa o usuário escolher o contexto; uma URL com `scope`/`permissions` explícitos vale para um único `integration_type`.
 
 A URL de migration não fica no mesmo arquivo da aplicação. Use um arquivo
@@ -160,11 +190,13 @@ separado, como `/etc/kami/migrations.env`, com permissão `600`, lido apenas no
 passo de deploy. `MIGRATION_DATABASE_URL` usa a role `kami_migrator`; o runtime
 continua usando `DATABASE_URL` com `kami_app`.
 
-A CLI do Prisma segue a mesma regra do `ecosystem.config.cjs`: lê o arquivo
-apontado por `KAMI_ENV_FILE`; sem ele, tenta `/etc/kami/kami-site.env` e depois o
-`.env` da raiz. Por isso o passo de migration aponta `KAMI_ENV_FILE` para o
-arquivo de migration, sem precisar exportar as variáveis no shell. Variáveis já
-definidas no ambiente têm precedência sobre o arquivo.
+A CLI do Prisma segue a mesma ordem do `ecosystem.config.cjs`: lê o arquivo
+apontado por `KAMI_ENV_FILE`; sem ele, o `.env` da raiz e, por último,
+`/etc/kami/kami-site.env`. Um único arquivo é carregado, e variáveis já definidas
+no ambiente têm precedência sobre ele. Por isso o passo de migration aponta
+`KAMI_ENV_FILE` para o arquivo de migration, sem precisar exportar as variáveis
+no shell; `MIGRATION_DATABASE_URL` continua tendo prioridade sobre
+`DATABASE_URL`.
 
 Gere o `SESSION_SECRET` com `openssl rand -base64 48`. Ele fica reservado para
 cookies assinados da D4; a sessão opaca da D2 não é assinada por ele. Para revogar
@@ -197,7 +229,8 @@ usado para mencioná-lo no reporte. Sem webhook válido, o endpoint responde
 `503`; sem owner ID válido, o reporte é enviado sem menção.
 
 Se o arquivo estiver em outro caminho, exporte `KAMI_ENV_FILE` antes de subir o
-PM2; o `ecosystem.config.cjs` repassa o valor ao Node via `--env-file-if-exists`.
+PM2; o `ecosystem.config.cjs` repassa o valor ao Node via `--env-file-if-exists`
+e o comando falha se o caminho não existir.
 
 ## 5. Primeira instalação
 

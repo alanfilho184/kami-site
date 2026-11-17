@@ -18,9 +18,9 @@ antes do `pm2 reload`, e não no boot do processo.
 ## Arquivo de ambiente
 
 O `prisma.config.ts` carrega o ambiente na mesma ordem do `ecosystem.config.cjs`:
-`KAMI_ENV_FILE` quando definido, senão `/etc/kami/kami-site.env`, e por último o
-`.env` da raiz. O primeiro arquivo carregado vence, e variável já exportada no
-shell continua tendo precedência. Um `KAMI_ENV_FILE` explícito que não existe
+`KAMI_ENV_FILE` quando definido, senão o `.env` da raiz e, por último,
+`/etc/kami/kami-site.env`. Um único arquivo é carregado, e variável já exportada
+no shell continua tendo precedência. Um `KAMI_ENV_FILE` explícito que não existe
 falha na hora, em vez de cair no `.env` por engano.
 
 Em produção, aponte o passo de migration para o arquivo da role com DDL:
