@@ -408,7 +408,7 @@ Regras:
 - A mensagem de erro lista apenas nomes de campos; nunca valores.
 - Exporte `loadConfig(environment)` para teste, `getConfig()` com cache e `clearConfigCache()` para os testes.
 - `NUXT_PUBLIC_*` chegam ao cliente por `useRuntimeConfig`; segredos ficam só no servidor.
-- `.env` não é versionado; produção usa `/etc/kami/kami-site.env` com permissão `600`.
+- `.env` não é versionado; a ordem de leitura é `KAMI_ENV_FILE`, `.env` da raiz e `/etc/kami/kami-site.env`. Em produção o arquivo fica fora do repositório, com permissão `600`.
 
 **Banco (`server/utils/database.ts`)**
 

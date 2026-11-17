@@ -10,12 +10,13 @@ import { defineConfig } from 'prisma/config';
  * de dados em runtime.
  *
  * O arquivo de ambiente segue a regra do ecosystem.config.cjs: KAMI_ENV_FILE
- * quando definido, senão /etc/kami/kami-site.env. Em desenvolvimento, o .env
- * da raiz continua valendo como fallback. O primeiro arquivo carregado vence,
- * porque process.loadEnvFile não sobrescreve variável já definida.
+ * quando definido, senão o .env da raiz do repositório e, por último,
+ * /etc/kami/kami-site.env. Só um arquivo é carregado, para não misturar
+ * configuração de dois lugares; variáveis já definidas no ambiente continuam
+ * tendo precedência, porque process.loadEnvFile não as sobrescreve.
  */
-const PRODUCTION_ENV_FILE = '/etc/kami/kami-site.env';
 const LOCAL_ENV_FILE = '.env';
+const PRODUCTION_ENV_FILE = '/etc/kami/kami-site.env';
 
 function loadEnvFileIfExists(envFile: string): void {
     if (!existsSync(envFile)) {
@@ -31,11 +32,11 @@ if (configuredEnvFile) {
     // Caminho pedido à mão não cai no .env local por engano: falhar alto é melhor
     // do que migrar o banco errado.
     process.loadEnvFile(configuredEnvFile);
+} else if (existsSync(LOCAL_ENV_FILE)) {
+    process.loadEnvFile(LOCAL_ENV_FILE);
 } else {
     loadEnvFileIfExists(PRODUCTION_ENV_FILE);
 }
-
-loadEnvFileIfExists(LOCAL_ENV_FILE);
 
 export default defineConfig({
     schema: 'prisma/schema.prisma',

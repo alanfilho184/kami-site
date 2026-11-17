@@ -93,7 +93,9 @@ estatísticas como indisponíveis; `/api/health` continua respondendo `200`.
 | `DB_STATEMENT_TIMEOUT_MS`    | servidor | timeout de cada consulta                                      |
 
 Nunca leia `process.env` fora de `server/utils/config.ts` e nunca versione o
-`.env` real. O arquivo de produção fica em `/etc/kami/kami-site.env`.
+`.env` real. A ordem de leitura é `KAMI_ENV_FILE`, `.env` da raiz e
+`/etc/kami/kami-site.env`, carregando só o primeiro que existir. Em produção o
+arquivo fica fora do repositório.
 
 ## Scripts
 

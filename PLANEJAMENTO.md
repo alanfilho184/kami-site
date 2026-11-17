@@ -1248,7 +1248,7 @@ Cloudflare (DNS + proxy + health check / failover)
 ### 15.2 Processo
 
 - PM2 em modo `fork`, uma instância por VPS, `max_memory_restart` de 512 MB.
-- `node_args` com `--env-file` quando `KAMI_ENV_FILE` estiver definido.
+- `node_args` com `--env-file-if-exists` apontando para `KAMI_ENV_FILE`, o `.env` da raiz ou `/etc/kami/kami-site.env`, nessa ordem.
 - `kill_timeout` de 8s para o shutdown fechar o pool.
 - Build no servidor ou artefato de CI; `.output` é autossuficiente.
 - Deploy rolante: tirar uma VPS do balanceamento, `npm ci`, `npm run build`, `pm2 reload`,
