@@ -11,6 +11,8 @@ export interface RequestLogContext {
     request_id: string;
     method: string;
     route: string;
+    /** Caminho cru sem query (forense); a rota segue normalizada. */
+    raw_path: string | null;
     ip: string | null;
     user_id: number | null;
 }
@@ -35,6 +37,7 @@ export interface LogContext {
     upstream_status?: number | null;
     request_id?: string;
     ip?: string | null;
+    raw_path?: string | null;
     request_body?: unknown;
     response_body?: unknown;
     request_body_bytes?: number;
@@ -50,6 +53,8 @@ export interface LogContext {
 export interface HttpLogContext extends LogContext {
     method: string;
     route: string;
+    /** Caminho cru sem query; null quando indisponível. */
+    raw_path: string | null;
     status: number;
     execution_ms: number;
     request_id: string;

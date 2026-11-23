@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { H3Event } from 'h3';
 import { captureResponseBody, readRequestBodyForLog, shouldCaptureHttpPayloads, type CapturedBody } from '../logs/body';
-import { createRequestLogContext, requestRoute } from '../logs/context';
+import { createRequestLogContext, requestRawPath, requestRoute } from '../logs/context';
 import { logger } from '../logs';
 import { getConfig } from '../utils/config';
 import { getClientIp } from '../utils/request-metadata';
@@ -68,6 +68,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
         const duration = Math.round(performance.now() - start);
         const route = requestRoute(event);
+        const rawPath = requestRawPath(event);
         const userId = event.context.log?.user_id ?? event.context.auth?.user?.id ?? null;
         const responseBody = responseCapture?.finish() ?? null;
         const isSessionProbe = path === '/api/auth/session' && status === 401;
@@ -79,6 +80,7 @@ export default defineEventHandler(async (event: H3Event) => {
         logger.logHttp({
             method: event.method,
             route,
+            raw_path: rawPath,
             status,
             execution_ms: duration,
             request_id: requestId,
