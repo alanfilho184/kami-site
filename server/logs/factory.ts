@@ -3,7 +3,7 @@ import type { AppConfig, LogLevel } from '../utils/config';
 import { getConfig } from '../utils/config';
 import { createLoggerClient } from './client';
 import { captureJsonValue } from './body';
-import { getRequestLogContext, requestRoute } from './context';
+import { getRequestLogContext, requestRawPath, requestRoute } from './context';
 import { redactContext } from './redact';
 import { writeLogRecord, type LogRecord } from './stdout';
 import type {
@@ -229,6 +229,10 @@ export function createLogger(options: LoggerFactoryOptions = {}): KamiLogger {
             request_id: context.request_id
         };
 
+        if (context.raw_path !== null && context.raw_path !== undefined && context.raw_path !== context.route) {
+            localContext.raw_path = context.raw_path;
+        }
+
         if (context.request_body_bytes !== undefined) {
             localContext.request_body_bytes = context.request_body_bytes;
         }
@@ -351,6 +355,7 @@ export function createLogger(options: LoggerFactoryOptions = {}): KamiLogger {
                   request_id: request.request_id,
                   method: request.method,
                   route: requestRoute(event),
+                  raw_path: request.raw_path ?? requestRawPath(event),
                   ip: request.ip,
                   user_id: request.user_id
               }

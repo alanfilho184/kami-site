@@ -166,6 +166,7 @@ describe('logs', () => {
         logger.logHttp({
             method: 'PATCH',
             route: '/api/fichas/:id',
+            raw_path: '/api/fichas/10',
             status: 200,
             execution_ms: 12,
             request_id: 'req-1',
@@ -181,6 +182,7 @@ describe('logs', () => {
         expect(local.context).toMatchObject({
             method: 'PATCH',
             path: '/api/fichas/:id',
+            raw_path: '/api/fichas/10',
             status: 200,
             duration_ms: 12,
             request_id: 'req-1',
@@ -194,6 +196,7 @@ describe('logs', () => {
         expect(events[0]?.payload).toMatchObject({
             method: 'PATCH',
             route: '/api/fichas/:id',
+            raw_path: '/api/fichas/10',
             status: 200,
             execution_ms: 12,
             request_id: 'req-1',
@@ -205,12 +208,36 @@ describe('logs', () => {
         });
     });
 
+    it('omite o raw_path no stdout quando é igual à rota', () => {
+        const { logger, output, events } = buildLogger();
+
+        logger.logHttp({
+            method: 'GET',
+            route: '/api/estatisticas',
+            raw_path: '/api/estatisticas',
+            status: 200,
+            execution_ms: 1,
+            request_id: 'req-4'
+        });
+
+        const local = firstRecord(output);
+
+        expect(local.context).toMatchObject({
+            method: 'GET',
+            path: '/api/estatisticas',
+            status: 200
+        });
+        expect(local.context).not.toHaveProperty('raw_path');
+        expect(events[0]?.payload).toMatchObject({ raw_path: '/api/estatisticas' });
+    });
+
     it('não envia o 401 da verificação de sessão ao remoto', () => {
         const { logger, events } = buildLogger();
 
         logger.logHttp({
             method: 'GET',
             route: '/api/auth/session',
+            raw_path: '/api/auth/session',
             status: 401,
             execution_ms: 3,
             request_id: 'req-2',
@@ -279,6 +306,7 @@ describe('logs', () => {
     it('mescla o contexto da requisição em forRequest', () => {
         const { logger, events } = buildLogger();
         const event = {
+            path: '/api/fichas',
             context: {
                 log: {
                     request_id: 'req-3',
@@ -296,10 +324,36 @@ describe('logs', () => {
             request_id: 'req-3',
             method: 'POST',
             route: '/api/fichas',
+            raw_path: '/api/fichas',
             ip: '127.0.0.1',
             user_id: 7,
             event: 'sheet.created',
             sheet_id: 10
+        });
+    });
+
+    it('preserva o raw_path do contexto em forRequest quando a rota difere', () => {
+        const { logger, events } = buildLogger();
+        const event = {
+            path: '/.env',
+            context: {
+                matchedRoute: { path: '/**' },
+                log: {
+                    request_id: 'req-5',
+                    method: 'GET',
+                    route: '/**',
+                    raw_path: '/.env',
+                    ip: '127.0.0.1',
+                    user_id: null
+                }
+            }
+        } as unknown as H3Event;
+
+        logger.forRequest(event).warn('Requisição recusada', { event: 'http.not_found' });
+
+        expect(events[0]?.payload).toMatchObject({
+            route: '/**',
+            raw_path: '/.env'
         });
     });
 
