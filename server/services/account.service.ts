@@ -4,18 +4,13 @@ import SQL from 'sql-template-strings';
 import type { PanelAccount } from '~~/shared/types/panel';
 import { queryOne } from '../utils/database';
 import { toAccount, type AccountRow } from './panel.service';
-import { InvalidCurrentPasswordError, UsernameAlreadyTakenError } from './user-errors';
-
-export interface ExistingUsernameRow extends QueryResultRow {
-    id: number;
-}
+import { InvalidCurrentPasswordError } from './user-errors';
 
 export interface PasswordRow extends QueryResultRow {
     password: string | null;
 }
 
 export interface AccountDependencies {
-    findUsername: (username: string, userId: number) => Promise<ExistingUsernameRow | null>;
     updateUsername: (userId: number, username: string) => Promise<AccountRow | null>;
     findPassword: (userId: number) => Promise<PasswordRow | null>;
     updatePassword: (userId: number, passwordHash: string) => Promise<unknown>;
@@ -23,21 +18,7 @@ export interface AccountDependencies {
     compare: (password: string, hash: string) => Promise<boolean>;
 }
 
-function isUniqueViolation(error: unknown): boolean {
-    return Boolean(error && typeof error === 'object' && 'code' in error && error.code === '23505');
-}
-
 export function createAccountService(dependencies: Partial<AccountDependencies> = {}) {
-    const findUsername =
-        dependencies.findUsername ??
-        ((username: string, userId: number) =>
-            queryOne<ExistingUsernameRow>(SQL`
-                SELECT id
-                FROM users
-                WHERE lower(username) = lower(${username})
-                  AND id <> ${userId}
-                LIMIT 1
-            `));
     const updateUsername =
         dependencies.updateUsername ??
         ((userId: number, username: string) =>
@@ -68,27 +49,13 @@ export function createAccountService(dependencies: Partial<AccountDependencies> 
     const compare = dependencies.compare ?? compareBcrypt;
 
     async function changeUsername(userId: number, username: string): Promise<PanelAccount> {
-        const existing = await findUsername(username, userId);
+        const row = await updateUsername(userId, username);
 
-        if (existing) {
-            throw new UsernameAlreadyTakenError();
+        if (!row) {
+            throw new Error('Conta não encontrada');
         }
 
-        try {
-            const row = await updateUsername(userId, username);
-
-            if (!row) {
-                throw new Error('Conta não encontrada');
-            }
-
-            return toAccount(row);
-        } catch (error) {
-            if (isUniqueViolation(error)) {
-                throw new UsernameAlreadyTakenError();
-            }
-
-            throw error;
-        }
+        return toAccount(row);
     }
 
     async function changePassword(userId: number, currentPassword: string, newPassword: string): Promise<void> {

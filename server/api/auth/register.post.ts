@@ -1,11 +1,7 @@
 import type { H3Event } from 'h3';
 import type { AuthErrorResponse, AuthResponse, AuthUser } from '~~/shared/types/auth';
 import { registerSchema } from '../../schemas/auth';
-import {
-    EmailAlreadyRegisteredError,
-    UsernameAlreadyTakenError,
-    registrationService
-} from '../../services/registration.service';
+import { EmailAlreadyRegisteredError, registrationService } from '../../services/registration.service';
 import { sessionService } from '../../services/session.service';
 import { logger } from '../../logs';
 import { consumeRegisterAttempt, consumeRegisterIp, resetRegisterEmail } from '../../utils/rate-limit';
@@ -61,17 +57,6 @@ export default defineEventHandler(async (event: H3Event): Promise<AuthResponse |
     try {
         user = await registrationService.register(username, email, password);
     } catch (error) {
-        if (error instanceof UsernameAlreadyTakenError) {
-            resetRegisterEmail(email);
-            log.warn('Nome de usuário já cadastrado', {
-                event: 'auth.register.failed',
-                error_code: 'username_taken',
-                auth_method: 'password'
-            });
-            setResponseStatus(event, 409);
-            return { message: 'Este nome de usuário já está em uso. Escolha outro.' };
-        }
-
         if (error instanceof EmailAlreadyRegisteredError) {
             log.warn('E-mail já cadastrado', {
                 event: 'auth.register.failed',

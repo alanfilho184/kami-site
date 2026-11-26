@@ -32,7 +32,7 @@ enum AnnouncementMode {
 model users {
   id                Int       @id @default(autoincrement())
   discord_id        String?   @unique
-  username          String?   @unique
+  username          String?
   avatar            String?
   email             String?   @unique
   password          String?
