@@ -1,22 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-    EmailAlreadyRegisteredError,
-    UsernameAlreadyTakenError,
-    createRegistrationService
-} from '../../server/services/registration.service';
+import { EmailAlreadyRegisteredError, createRegistrationService } from '../../server/services/registration.service';
 
 function createService() {
     const findByEmail = vi.fn().mockResolvedValue(null);
-    const findByUsername = vi.fn().mockResolvedValue(null);
     const insertUser = vi.fn().mockResolvedValue({
         id: 42,
         username: 'lyra',
         email: 'lyra@example.com'
     });
     const hash = vi.fn().mockResolvedValue('hash-da-senha');
-    const service = createRegistrationService({ findByEmail, findByUsername, insertUser, hash });
+    const service = createRegistrationService({ findByEmail, insertUser, hash });
 
-    return { service, findByEmail, findByUsername, insertUser, hash };
+    return { service, findByEmail, insertUser, hash };
 }
 
 describe('serviço de cadastro', () => {
@@ -30,16 +25,15 @@ describe('serviço de cadastro', () => {
         expect(user).toEqual({ id: 42, username: 'lyra', email: 'lyra@example.com', isPremium: false });
     });
 
-    it('recusa username já cadastrado antes de calcular o hash', async () => {
-        const { service, findByUsername, insertUser, hash } = createService();
+    it('permite cadastro com username já usado por outra conta', async () => {
+        const { service, findByEmail, insertUser } = createService();
 
-        findByUsername.mockResolvedValue({ id: 1 });
+        const user = await service.register('lyra', 'outra@example.com', 'senha-segura');
 
-        await expect(service.register('lyra', 'lyra@example.com', 'senha-segura')).rejects.toBeInstanceOf(
-            UsernameAlreadyTakenError
-        );
-        expect(hash).not.toHaveBeenCalled();
-        expect(insertUser).not.toHaveBeenCalled();
+        // Username não é mais único: só o e-mail é consultado antes do insert.
+        expect(findByEmail).toHaveBeenCalledWith('outra@example.com');
+        expect(insertUser).toHaveBeenCalledWith('lyra', 'outra@example.com', 'hash-da-senha');
+        expect(user.username).toBe('lyra');
     });
 
     it('recusa e-mail já cadastrado antes de calcular o hash', async () => {
@@ -52,16 +46,6 @@ describe('serviço de cadastro', () => {
         );
         expect(hash).not.toHaveBeenCalled();
         expect(insertUser).not.toHaveBeenCalled();
-    });
-
-    it('converte a violação de username do banco em username ocupado', async () => {
-        const { service, insertUser } = createService();
-
-        insertUser.mockRejectedValue({ code: '23505', constraint: 'users_username_key' });
-
-        await expect(service.register('lyra', 'lyra@example.com', 'senha-segura')).rejects.toBeInstanceOf(
-            UsernameAlreadyTakenError
-        );
     });
 
     it('converte a violação de e-mail do banco em e-mail cadastrado', async () => {

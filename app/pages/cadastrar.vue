@@ -103,7 +103,7 @@ export default defineNuxtComponent({
                 const status = errorStatus(error);
 
                 if (status === 409) {
-                    this.errorMessage = serverErrorMessage(error) ?? 'Este e-mail ou nome de usuário já está em uso.';
+                    this.errorMessage = serverErrorMessage(error) ?? 'Este e-mail já está cadastrado. Tente entrar.';
                 } else if (status === 429) {
                     this.errorMessage = 'Muitas tentativas. Aguarde alguns minutos e tente novamente.';
                 } else if (status === 503) {

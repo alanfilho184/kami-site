@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createAccountService } from '../../server/services/account.service';
 import type { AccountRow } from '../../server/services/panel.service';
-import { InvalidCurrentPasswordError, UsernameAlreadyTakenError } from '../../server/services/user-errors';
+import { InvalidCurrentPasswordError } from '../../server/services/user-errors';
 
 function createAccountRow(overrides: Partial<AccountRow> = {}): AccountRow {
     return {
@@ -17,14 +17,12 @@ function createAccountRow(overrides: Partial<AccountRow> = {}): AccountRow {
 }
 
 function createService() {
-    const findUsername = vi.fn().mockResolvedValue(null);
     const updateUsername = vi.fn().mockResolvedValue(createAccountRow({ username: 'lyra_nova' }));
     const findPassword = vi.fn().mockResolvedValue({ password: 'hash-atual' });
     const updatePassword = vi.fn().mockResolvedValue(undefined);
     const hash = vi.fn().mockResolvedValue('hash-nova');
     const compare = vi.fn().mockResolvedValue(true);
     const service = createAccountService({
-        findUsername,
         updateUsername,
         findPassword,
         updatePassword,
@@ -32,7 +30,7 @@ function createService() {
         compare
     });
 
-    return { service, findUsername, updateUsername, findPassword, updatePassword, hash, compare };
+    return { service, updateUsername, findPassword, updatePassword, hash, compare };
 }
 
 describe('serviço de conta', () => {
@@ -45,19 +43,14 @@ describe('serviço de conta', () => {
         expect(account.username).toBe('lyra_nova');
     });
 
-    it('recusa username já usado por outra conta', async () => {
-        const { service, findUsername, updateUsername } = createService();
-        findUsername.mockResolvedValue({ id: 7 });
-
-        await expect(service.changeUsername(42, 'lyra')).rejects.toBeInstanceOf(UsernameAlreadyTakenError);
-        expect(updateUsername).not.toHaveBeenCalled();
-    });
-
-    it('converte a violação de unicidade do banco em username ocupado', async () => {
+    it('permite renomear para um username já usado por outra conta', async () => {
         const { service, updateUsername } = createService();
-        updateUsername.mockRejectedValue({ code: '23505' });
 
-        await expect(service.changeUsername(42, 'lyra')).rejects.toBeInstanceOf(UsernameAlreadyTakenError);
+        const account = await service.changeUsername(42, 'lyra');
+
+        // Username não é mais único: a troca não consulta outras contas.
+        expect(updateUsername).toHaveBeenCalledWith(42, 'lyra');
+        expect(account.username).toBe('lyra_nova');
     });
 
     it('troca a senha quando a senha atual confere', async () => {

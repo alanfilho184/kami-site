@@ -3,9 +3,9 @@ import type { QueryResultRow } from 'pg';
 import SQL from 'sql-template-strings';
 import type { AuthUser } from '~~/shared/types/auth';
 import { queryOne } from '../utils/database';
-import { EmailAlreadyRegisteredError, UsernameAlreadyTakenError } from './user-errors';
+import { EmailAlreadyRegisteredError } from './user-errors';
 
-export { EmailAlreadyRegisteredError, UsernameAlreadyTakenError } from './user-errors';
+export { EmailAlreadyRegisteredError } from './user-errors';
 
 export interface ExistingUserRow extends QueryResultRow {
     id: number;
@@ -19,7 +19,6 @@ export interface RegisteredUserRow extends QueryResultRow {
 
 export interface RegistrationDependencies {
     findByEmail: (email: string) => Promise<ExistingUserRow | null>;
-    findByUsername: (username: string) => Promise<ExistingUserRow | null>;
     insertUser: (username: string, email: string, passwordHash: string) => Promise<RegisteredUserRow | null>;
     hash: (password: string) => Promise<string>;
 }
@@ -47,15 +46,6 @@ export function createRegistrationService(dependencies: Partial<RegistrationDepe
                 WHERE lower(email) = lower(${email})
                 LIMIT 1
             `));
-    const findByUsername =
-        dependencies.findByUsername ??
-        ((username: string) =>
-            queryOne<ExistingUserRow>(SQL`
-                SELECT id
-                FROM users
-                WHERE lower(username) = lower(${username})
-                LIMIT 1
-            `));
     const insertUser =
         dependencies.insertUser ??
         ((username: string, email: string, passwordHash: string) =>
@@ -67,11 +57,7 @@ export function createRegistrationService(dependencies: Partial<RegistrationDepe
     const hash = dependencies.hash ?? ((password: string) => hashBcrypt(password, 12));
 
     async function register(username: string, email: string, password: string): Promise<AuthUser> {
-        const [existingEmail, existingUsername] = await Promise.all([findByEmail(email), findByUsername(username)]);
-
-        if (existingUsername) {
-            throw new UsernameAlreadyTakenError();
-        }
+        const existingEmail = await findByEmail(email);
 
         if (existingEmail) {
             throw new EmailAlreadyRegisteredError();
@@ -95,10 +81,6 @@ export function createRegistrationService(dependencies: Partial<RegistrationDepe
         } catch (error) {
             if (isUniqueViolation(error)) {
                 const constraint = uniqueConstraint(error);
-
-                if (constraint === 'users_username_key') {
-                    throw new UsernameAlreadyTakenError();
-                }
 
                 if (constraint === 'users_email_key') {
                     throw new EmailAlreadyRegisteredError();
